@@ -1,6 +1,6 @@
 import { CAMPAIGNS } from '../config.js';
 
-export default function Header({ selectedCampaign, onCampaignChange, activeTab, onTabChange, stats, lastSyncedAt }) {
+export default function Header({ selectedCampaign, onCampaignChange, activeTab, onTabChange, stats, lastSyncedAt, onSync, syncing }) {
   const tabs = [
     { id: 'live', label: 'Live' },
     { id: 'history', label: 'History' },
@@ -55,8 +55,8 @@ export default function Header({ selectedCampaign, onCampaignChange, activeTab, 
         ))}
       </div>
 
-      {/* Stats */}
-      <div className="ml-auto flex gap-4">
+      {/* Stats + Sync */}
+      <div className="ml-auto flex gap-4 items-center">
         <div className="font-mono text-[11px] text-text2 whitespace-nowrap">
           Live: <strong className="text-text">{stats.live}</strong>
         </div>
@@ -68,9 +68,16 @@ export default function Header({ selectedCampaign, onCampaignChange, activeTab, 
         </div>
         {lastSyncedAt && (
           <div className="font-mono text-[10px] text-muted whitespace-nowrap" title={lastSyncedAt}>
-            Synced {new Date(lastSyncedAt).toLocaleDateString()}
+            {new Date(lastSyncedAt).toLocaleDateString()}
           </div>
         )}
+        <button
+          onClick={onSync}
+          disabled={syncing}
+          className="font-mono text-[10px] font-semibold uppercase tracking-wider px-3 py-1 rounded cursor-pointer border transition-all whitespace-nowrap bg-surface2 text-accent2 border-[rgba(71,200,255,0.25)] hover:border-accent2 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {syncing ? 'Syncing...' : 'Sync'}
+        </button>
       </div>
     </header>
   );
