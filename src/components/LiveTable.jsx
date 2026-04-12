@@ -3,7 +3,6 @@ import Badge from './Badge.jsx';
 import TagEditor from './TagEditor.jsx';
 import { cpaTrend, spendVelocity, daysActive, dynamicCpaThresholds } from '../utils/trends.js';
 
-const FORMATS = ['All', '9x16', '16x9', '1x1'];
 
 function TrendArrow({ direction, label }) {
   if (direction === 'new') return <span className="text-muted text-[9px]">NEW</span>;
@@ -43,7 +42,6 @@ export default function LiveTable({ assets, tags }) {
   const [sortDir, setSortDir] = useState('asc');
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-  const [formatFilter, setFormatFilter] = useState('All');
   const [search, setSearch] = useState('');
 
   // Enrich assets with computed trends
@@ -59,14 +57,10 @@ export default function LiveTable({ assets, tags }) {
 
   // Filter
   const filtered = useMemo(() => {
-    let list = enriched;
-    if (formatFilter !== 'All') list = list.filter(a => a.orientation === formatFilter);
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(a => (a.name || '').toLowerCase().includes(q) || (a.youtubeId || '').toLowerCase().includes(q));
-    }
-    return list;
-  }, [enriched, formatFilter, search]);
+    if (!search) return enriched;
+    const q = search.toLowerCase();
+    return enriched.filter(a => (a.name || '').toLowerCase().includes(q) || (a.youtubeId || '').toLowerCase().includes(q));
+  }, [enriched, search]);
 
   const sorted = useMemo(() => sortAssets(filtered, sortKey, sortDir), [filtered, sortKey, sortDir]);
 
@@ -104,23 +98,8 @@ export default function LiveTable({ assets, tags }) {
 
   return (
     <div className="overflow-auto h-full">
-      {/* Filters bar */}
+      {/* Search bar */}
       <div className="sticky top-0 z-20 bg-bg border-b border-border px-4 py-2 flex items-center gap-3">
-        <div className="flex gap-1">
-          {FORMATS.map(f => (
-            <button
-              key={f}
-              onClick={() => setFormatFilter(f)}
-              className={`font-mono text-[10px] font-semibold uppercase px-2.5 py-1 rounded cursor-pointer border transition-all ${
-                formatFilter === f
-                  ? 'bg-accent text-[#0a0c0f] border-accent'
-                  : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
         <input
           type="text"
           value={search}
