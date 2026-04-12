@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0c0f;
+  --color-surface: #111318;
+  --color-surface2: #181c23;
+  --color-border: #1f2530;
+  --color-accent: #e8ff47;
+  --color-accent2: #47c8ff;
+  --color-red: #ff4757;
+  --color-green: #47ffb0;
+  --color-orange: #ffaa47;
+  --color-purple: #c084fc;
+  --color-muted: #4a5568;
+  --color-text: #e2e8f0;
+  --color-text2: #8892a4;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Table base */
+table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  background: var(--color-surface);
+  color: var(--color-text2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  white-space: nowrap;
+  cursor: pointer;
+}
+thead th:hover { color: var(--color-text); }
+tbody tr { border-bottom: 1px solid var(--color-border); transition: background 0.12s; }
+tbody tr:hover { background: var(--color-surface); }
+td { padding: 10px 16px; vertical-align: middle; white-space: nowrap; }
