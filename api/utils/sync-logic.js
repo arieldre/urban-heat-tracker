@@ -130,8 +130,17 @@ export async function runSync() {
   for (const campId of CAMPAIGN_IDS) {
     const camp = byCampaign[campId];
 
-    // Finalize video assets
-    const videoAssets = Object.values(camp.videos).map(v => {
+    // Staleness threshold: assets with no data in last 3 days are considered removed
+    const STALE_DAYS = 3;
+    const staleDate = new Date(yesterday);
+    staleDate.setDate(staleDate.getDate() - STALE_DAYS);
+    const staleCutoff = staleDate.toISOString().slice(0, 10);
+
+    // Finalize & classify video assets
+    const liveAssets = [];
+    const autoHistory = [];
+
+    for (const v of Object.values(camp.videos)) {
       if (!v.name && v.youtubeId && ytTitles[v.youtubeId]) {
         v.name = ytTitles[v.youtubeId];
       }
@@ -139,21 +148,44 @@ export async function runSync() {
       v.conversions = +v.conversions.toFixed(2);
       v.cpa = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(2) : null;
       v.ctr = v.impressions > 0 ? +((v.clicks / v.impressions) * 100).toFixed(3) : null;
-      v.status = v.spend > 0 ? 'live' : 'pending';
       v.url = v.youtubeId ? `https://www.youtube.com/watch?v=${v.youtubeId}` : null;
-      // Build daily array
-      v.daily = Object.entries(v.daily)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, d]) => ({
-          date,
-          spend: +d.spend.toFixed(2),
-          conversions: +d.conversions.toFixed(2),
-          impressions: d.impressions,
-          clicks: d.clicks,
-          cpa: d.conversions > 0 ? +(d.spend / d.conversions).toFixed(2) : null,
-        }));
-      return v;
-    });
+
+      // Build daily array and find first/last active dates
+      const dailyEntries = Object.entries(v.daily).sort(([a], [b]) => a.localeCompare(b));
+      v.daily = dailyEntries.map(([date, d]) => ({
+        date,
+        spend: +d.spend.toFixed(2),
+        conversions: +d.conversions.toFixed(2),
+        impressions: d.impressions,
+        clicks: d.clicks,
+        cpa: d.conversions > 0 ? +(d.spend / d.conversions).toFixed(2) : null,
+      }));
+
+      v.firstSeenAt = dailyEntries[0]?.[0] || to;
+      v.lastSeenAt = dailyEntries[dailyEntries.length - 1]?.[0] || to;
+
+      // Classify: if last active date is before staleness cutoff → history
+      if (v.lastSeenAt < staleCutoff) {
+        autoHistory.push({
+          id: v.id,
+          key: v.key,
+          youtubeId: v.youtubeId,
+          name: v.name,
+          orientation: v.orientation,
+          url: v.url,
+          removedAt: v.lastSeenAt,
+          lastCpa: v.cpa,
+          lastSpend: v.spend,
+          lastConversions: v.conversions,
+          lastPerformanceLabel: v.performanceLabel,
+          reason: `No data since ${v.lastSeenAt}`,
+          firstSeenAt: v.firstSeenAt,
+        });
+      } else {
+        v.status = v.spend > 0 ? 'live' : 'pending';
+        liveAssets.push(v);
+      }
+    }
 
     // Finalize text assets
     const textAssets = Object.values(camp.texts).map(t => {
@@ -162,22 +194,21 @@ export async function runSync() {
       return t;
     });
 
-    // Diff against previous snapshot
+    // Merge with previous history (snapshot diff for assets that fully disappeared from API)
     const prevSnapshot = (await kvGet(`tracker/${campId}/snapshot.json`)) || [];
     const prevLive = (await kvGet(`tracker/${campId}/live.json`)) || { assets: [] };
     const prevHistory = (await kvGet(`tracker/${campId}/history.json`)) || [];
 
+    const allCurrentKeys = new Set(Object.values(camp.videos).map(v => v.key));
     const prevKeys = new Set(prevSnapshot);
-    const currentKeys = new Set(videoAssets.map(v => v.key));
 
-    // Find removed assets
-    const removedKeys = [...prevKeys].filter(k => !currentKeys.has(k));
-    const newHistory = [...prevHistory];
-
-    for (const rk of removedKeys) {
+    // Assets in previous snapshot but completely gone from API
+    const goneFromApi = [...prevKeys].filter(k => !allCurrentKeys.has(k));
+    const apiRemovals = [];
+    for (const rk of goneFromApi) {
       const prev = prevLive.assets?.find(a => a.key === rk);
       if (prev) {
-        newHistory.push({
+        apiRemovals.push({
           id: prev.id,
           key: rk,
           youtubeId: prev.youtubeId,
@@ -189,37 +220,35 @@ export async function runSync() {
           lastSpend: prev.spend,
           lastConversions: prev.conversions,
           lastPerformanceLabel: prev.performanceLabel,
-          reason: 'Removed by Google',
+          reason: 'Removed from campaign',
           firstSeenAt: prev.firstSeenAt || now.slice(0, 10),
         });
       }
     }
 
-    // Preserve firstSeenAt for continuing assets
-    for (const v of videoAssets) {
-      const prev = prevLive.assets?.find(a => a.key === v.key);
-      v.firstSeenAt = prev?.firstSeenAt || now.slice(0, 10);
-      v.lastSeenAt = now.slice(0, 10);
-    }
+    // Deduplicate: don't re-add assets already in history
+    const existingHistoryKeys = new Set(prevHistory.map(h => h.key));
+    const newEntries = [...autoHistory, ...apiRemovals].filter(h => !existingHistoryKeys.has(h.key));
+    const mergedHistory = [...prevHistory, ...newEntries];
 
     // Write to KV
+    const liveKeys = liveAssets.map(v => v.key);
     await Promise.all([
       kvSet(`tracker/${campId}/live.json`, {
         lastSyncedAt: now,
         campaignName: CAMPAIGN_LABELS[campId] || campId,
-        assets: videoAssets,
+        assets: liveAssets,
       }),
-      kvSet(`tracker/${campId}/history.json`, newHistory),
+      kvSet(`tracker/${campId}/history.json`, mergedHistory),
       kvSet(`tracker/${campId}/descriptions.json`, textAssets),
-      kvSet(`tracker/${campId}/snapshot.json`, [...currentKeys]),
+      kvSet(`tracker/${campId}/snapshot.json`, liveKeys),
     ]);
 
-    const added = [...currentKeys].filter(k => !prevKeys.has(k)).length;
     summary.synced++;
-    summary.totalAdded += added;
-    summary.totalRemoved += removedKeys.length;
+    summary.totalAdded += liveKeys.filter(k => !prevKeys.has(k)).length;
+    summary.totalRemoved += newEntries.length;
 
-    console.log(`[sync] ${CAMPAIGN_LABELS[campId]}: ${videoAssets.length} live, ${removedKeys.length} removed, ${added} added, ${textAssets.length} texts`);
+    console.log(`[sync] ${CAMPAIGN_LABELS[campId]}: ${liveAssets.length} live, ${newEntries.length} → history, ${autoHistory.length} stale, ${textAssets.length} texts`);
   }
 
   return { ok: true, ...summary, syncedAt: now };

@@ -7,6 +7,14 @@ vi.mock('../utils/kv.js', () => ({
   kvSet: vi.fn(async (key, value) => { kvStore[key] = value; }),
 }));
 
+// Use dates relative to "now" so staleness logic works correctly
+const today = new Date();
+const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+const twoDaysAgo = new Date(today); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+const recentDate = yesterday.toISOString().slice(0, 10);
+const recentDate2 = twoDaysAgo.toISOString().slice(0, 10);
+const staleDate = '2026-03-05'; // clearly stale — weeks ago
+
 // Mock Google API
 vi.mock('../utils/google.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -15,36 +23,44 @@ vi.mock('../utils/google.js', async (importOriginal) => {
     getAccessToken: vi.fn(async () => 'mock-token'),
     gaQuery: vi.fn(async () => ({
       results: [
-        // Campaign 1 - video asset
+        // Campaign 1 - video asset (recent — should be live)
         {
           campaign: { id: '22784768376', name: 'H48fastprogression' },
           asset: { id: '100', name: 'TestVideo', youtubeVideoAsset: { youtubeVideoId: 'abc123' } },
           adGroupAdAssetView: { fieldType: 'YOUTUBE_VIDEO', performanceLabel: 'GOOD', enabled: true },
-          segments: { date: '2026-04-10' },
+          segments: { date: recentDate2 },
           metrics: { impressions: '1000', clicks: '50', costMicros: '500000', conversions: '10' },
         },
-        // Campaign 1 - another day for same asset
+        // Campaign 1 - same asset another day
         {
           campaign: { id: '22784768376', name: 'H48fastprogression' },
           asset: { id: '100', name: 'TestVideo', youtubeVideoAsset: { youtubeVideoId: 'abc123' } },
           adGroupAdAssetView: { fieldType: 'YOUTUBE_VIDEO', performanceLabel: 'GOOD', enabled: true },
-          segments: { date: '2026-04-11' },
+          segments: { date: recentDate },
           metrics: { impressions: '2000', clicks: '100', costMicros: '800000', conversions: '15' },
+        },
+        // Campaign 1 - STALE video asset (last data weeks ago — should go to history)
+        {
+          campaign: { id: '22784768376', name: 'H48fastprogression' },
+          asset: { id: '150', name: 'StaleVideo', youtubeVideoAsset: { youtubeVideoId: 'stale999' } },
+          adGroupAdAssetView: { fieldType: 'YOUTUBE_VIDEO', performanceLabel: 'LOW', enabled: true },
+          segments: { date: staleDate },
+          metrics: { impressions: '200', clicks: '5', costMicros: '100000', conversions: '1' },
         },
         // Campaign 1 - text asset
         {
           campaign: { id: '22784768376', name: 'H48fastprogression' },
           asset: { id: '200', name: '', textAsset: { text: 'Fight like a boss' } },
           adGroupAdAssetView: { fieldType: 'HEADLINE', performanceLabel: 'BEST', enabled: true },
-          segments: { date: '2026-04-10' },
+          segments: { date: recentDate },
           metrics: { impressions: '5000', clicks: '200', costMicros: '1000000', conversions: '30' },
         },
-        // Campaign 2 - video
+        // Campaign 2 - video (recent)
         {
           campaign: { id: '22879160345', name: 'H48battleactivitygrows' },
           asset: { id: '300', name: 'BattleVideo', youtubeVideoAsset: { youtubeVideoId: 'def456' } },
           adGroupAdAssetView: { fieldType: 'PORTRAIT_YOUTUBE_VIDEO', performanceLabel: 'LOW', enabled: true },
-          segments: { date: '2026-04-10' },
+          segments: { date: recentDate },
           metrics: { impressions: '500', clicks: '10', costMicros: '300000', conversions: '2' },
         },
       ],
@@ -103,8 +119,25 @@ describe('sync-logic', () => {
     const live = kvStore['tracker/22784768376/live.json'];
     const video = live.assets.find(a => a.youtubeId === 'abc123');
     expect(video.daily).toHaveLength(2);
-    expect(video.daily[0].date).toBe('2026-04-10');
-    expect(video.daily[1].date).toBe('2026-04-11');
+    expect(video.daily[0].date).toBe(recentDate2);
+    expect(video.daily[1].date).toBe(recentDate);
+  });
+
+  it('moves stale assets to history automatically', async () => {
+    const { runSync } = await import('../utils/sync-logic.js');
+    await runSync();
+
+    // Stale video should NOT be in live
+    const live = kvStore['tracker/22784768376/live.json'];
+    const staleInLive = live.assets.find(a => a.youtubeId === 'stale999');
+    expect(staleInLive).toBeUndefined();
+
+    // Stale video SHOULD be in history
+    const history = kvStore['tracker/22784768376/history.json'];
+    const staleInHistory = history.find(h => h.youtubeId === 'stale999');
+    expect(staleInHistory).toBeTruthy();
+    expect(staleInHistory.removedAt).toBe(staleDate);
+    expect(staleInHistory.reason).toContain('No data since');
   });
 
   it('sets correct orientation for portrait videos', async () => {
@@ -136,23 +169,21 @@ describe('sync-logic', () => {
     expect(snapshot.length).toBeGreaterThan(0);
   });
 
-  it('detects removed assets on second sync', async () => {
+  it('detects fully removed assets on second sync', async () => {
     const { runSync } = await import('../utils/sync-logic.js');
 
     // First sync seeds data
     await runSync();
 
-    // Simulate removing the video from campaign 22879160345
-    // by clearing gaQuery results for that campaign
+    // Second sync: campaign 2 video completely gone from API
     const { gaQuery } = await import('../utils/google.js');
     gaQuery.mockResolvedValueOnce({
       results: [
-        // Only campaign 1 video remains
         {
           campaign: { id: '22784768376', name: 'H48fastprogression' },
           asset: { id: '100', name: 'TestVideo', youtubeVideoAsset: { youtubeVideoId: 'abc123' } },
           adGroupAdAssetView: { fieldType: 'YOUTUBE_VIDEO', performanceLabel: 'GOOD', enabled: true },
-          segments: { date: '2026-04-11' },
+          segments: { date: recentDate },
           metrics: { impressions: '1000', clicks: '50', costMicros: '500000', conversions: '10' },
         },
       ],
@@ -163,8 +194,9 @@ describe('sync-logic', () => {
 
     const history = kvStore['tracker/22879160345/history.json'];
     expect(history.length).toBeGreaterThan(0);
-    expect(history[0].youtubeId).toBe('def456');
-    expect(history[0].reason).toBe('Removed by Google');
+    const removed = history.find(h => h.youtubeId === 'def456');
+    expect(removed).toBeTruthy();
+    expect(removed.reason).toBe('Removed from campaign');
   });
 
   it('sets status=pending for zero-spend assets', async () => {
@@ -175,7 +207,7 @@ describe('sync-logic', () => {
           campaign: { id: '22784768376', name: 'H48fastprogression' },
           asset: { id: '999', name: 'NewVideo', youtubeVideoAsset: { youtubeVideoId: 'new123' } },
           adGroupAdAssetView: { fieldType: 'YOUTUBE_VIDEO', performanceLabel: 'UNSPECIFIED', enabled: true },
-          segments: { date: '2026-04-11' },
+          segments: { date: recentDate },
           metrics: { impressions: '0', clicks: '0', costMicros: '0', conversions: '0' },
         },
       ],
