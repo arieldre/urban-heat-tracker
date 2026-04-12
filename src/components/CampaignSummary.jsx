@@ -20,11 +20,11 @@ export default function CampaignSummary({ assets, history }) {
 
   const cards = [
     { label: 'Total Spend', value: `$${stats.totalSpend.toFixed(0)}`, color: 'text-text' },
-    { label: 'Avg CPA', value: stats.avgCpa ? `$${stats.avgCpa.toFixed(3)}` : '--', color: 'text-green' },
+    { label: 'Avg CPA', value: stats.avgCpa ? `$${stats.avgCpa.toFixed(4)}` : '--', color: 'text-green' },
     { label: 'Conversions', value: stats.totalConv.toLocaleString(), color: 'text-accent2' },
     { label: 'Impressions', value: stats.totalImpr > 1000 ? `${(stats.totalImpr / 1000).toFixed(1)}k` : stats.totalImpr.toString(), color: 'text-text2' },
     { label: 'CTR', value: stats.ctr ? `${stats.ctr.toFixed(2)}%` : '--', color: 'text-text2' },
-    { label: 'Best CPA', value: stats.best ? `$${stats.best.cpa.toFixed(3)}` : '--', sub: stats.best?.name?.slice(0, 25) || '', color: 'text-green' },
+    { label: 'Best CPA', value: stats.best ? `$${stats.best.cpa.toFixed(4)}` : '--', sub: stats.best?.name?.slice(0, 25) || '', color: 'text-green' },
   ];
 
   return (

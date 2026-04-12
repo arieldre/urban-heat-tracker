@@ -74,7 +74,7 @@ export default function CrossCampaignTab() {
               </div>
               <div className="flex justify-between">
                 <span className="font-mono text-[10px] text-muted">Avg CPA</span>
-                <span className="font-mono text-[12px] text-green font-semibold">{c.avgCpa ? `$${c.avgCpa.toFixed(3)}` : '--'}</span>
+                <span className="font-mono text-[12px] text-green font-semibold">{c.avgCpa ? `$${c.avgCpa.toFixed(4)}` : '--'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="font-mono text-[10px] text-muted">Conversions</span>
@@ -127,7 +127,7 @@ export default function CrossCampaignTab() {
                       <div className="flex justify-between mb-1">
                         <span className="font-mono text-[9px] text-muted">CPA</span>
                         <span className={`font-mono text-[11px] font-semibold ${isBest ? 'text-green' : 'text-text'}`}>
-                          {c.cpa ? `$${c.cpa.toFixed(3)}` : '--'}
+                          {c.cpa ? `$${c.cpa.toFixed(4)}` : '--'}
                         </span>
                       </div>
                       <div className="flex justify-between mb-1">

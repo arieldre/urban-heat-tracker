@@ -63,11 +63,11 @@ export default function LifespanChart({ assets, thresholds }) {
                 <div
                   className={`absolute top-0 h-full rounded-sm ${barColor(item.cpa)} opacity-70 hover:opacity-100 transition-opacity`}
                   style={{ left: `${left}%`, width: `${width}%` }}
-                  title={`${item.name}\n${item.firstSeenAt} → ${item.lastSeenAt}\nCPA: ${item.cpa ? '$' + item.cpa.toFixed(3) : '--'}\nSpend: $${item.spend.toFixed(0)}`}
+                  title={`${item.name}\n${item.firstSeenAt} → ${item.lastSeenAt}\nCPA: ${item.cpa ? '$' + item.cpa.toFixed(4) : '--'}\nSpend: $${item.spend.toFixed(0)}`}
                 />
               </div>
               <div className="font-mono text-[9px] text-muted w-[50px] shrink-0">
-                {item.cpa ? `$${item.cpa.toFixed(3)}` : '--'}
+                {item.cpa ? `$${item.cpa.toFixed(4)}` : '--'}
               </div>
             </div>
           );

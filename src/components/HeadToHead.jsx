@@ -47,7 +47,7 @@ export default function HeadToHead({ assets, onClose }) {
             >
               <option value="">Select creative...</option>
               {eligible.map(a => (
-                <option key={a.key} value={a.key}>{(a.name || a.youtubeId || '').slice(0, 50)} (${a.cpa?.toFixed(3)})</option>
+                <option key={a.key} value={a.key}>{(a.name || a.youtubeId || '').slice(0, 50)} (${a.cpa?.toFixed(4)})</option>
               ))}
             </select>
           </div>
@@ -61,7 +61,7 @@ export default function HeadToHead({ assets, onClose }) {
             >
               <option value="">Select creative...</option>
               {eligible.filter(x => x.key !== selectedA).map(b => (
-                <option key={b.key} value={b.key}>{(b.name || b.youtubeId || '').slice(0, 50)} (${b.cpa?.toFixed(3)})</option>
+                <option key={b.key} value={b.key}>{(b.name || b.youtubeId || '').slice(0, 50)} (${b.cpa?.toFixed(4)})</option>
               ))}
             </select>
           </div>
@@ -83,7 +83,7 @@ export default function HeadToHead({ assets, onClose }) {
                   </div>
                   <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                     {[
-                      ['CPA', asset.cpa ? `$${asset.cpa.toFixed(3)}` : '--'],
+                      ['CPA', asset.cpa ? `$${asset.cpa.toFixed(4)}` : '--'],
                       ['Spend', `$${asset.spend.toFixed(0)}`],
                       ['Conv', Math.round(asset.conversions)],
                       ['Impr', asset.impressions.toLocaleString()],
@@ -105,7 +105,7 @@ export default function HeadToHead({ assets, onClose }) {
             <div className="bg-surface2 border border-border rounded-lg p-4">
               <div className="flex items-end gap-px h-[120px]">
                 {chartData.map((d, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-px" title={`${d.date}\nA: ${d.aCpa ? '$' + d.aCpa.toFixed(3) : '--'}\nB: ${d.bCpa ? '$' + d.bCpa.toFixed(3) : '--'}`}>
+                  <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-px" title={`${d.date}\nA: ${d.aCpa ? '$' + d.aCpa.toFixed(4) : '--'}\nB: ${d.bCpa ? '$' + d.bCpa.toFixed(4) : '--'}`}>
                     <div className="w-full flex items-end justify-center gap-px h-full">
                       {d.aCpa !== null && (
                         <div className="w-[45%] bg-green opacity-60 rounded-t-sm" style={{ height: `${(d.aCpa / maxCpa) * 100}%`, minHeight: '2px' }} />

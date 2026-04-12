@@ -173,14 +173,14 @@ export default function LiveTable({ assets, tags }) {
 
                   {/* CPA */}
                   <td className={`font-mono text-[11px] ${cpaClass(asset.cpa)}`}>
-                    {asset.cpa !== null ? `$${asset.cpa.toFixed(3)}` : '\u2013'}
+                    {asset.cpa !== null ? `$${asset.cpa.toFixed(4)}` : '\u2013'}
                   </td>
 
                   {/* 7d Trend */}
                   <td className="font-mono text-[10px]">
                     {asset._trend?.recentCpa !== null && asset._trend?.recentCpa !== undefined ? (
                       <span>
-                        ${asset._trend.recentCpa.toFixed(3)}
+                        ${asset._trend.recentCpa.toFixed(4)}
                         <TrendArrow direction={asset._trend.direction} label={asset._trend.pctChange ? `${asset._trend.pctChange > 0 ? '+' : ''}${asset._trend.pctChange}%` : ''} />
                       </span>
                     ) : (

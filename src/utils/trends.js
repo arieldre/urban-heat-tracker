@@ -47,7 +47,7 @@ export function cpaTrend(daily, windowDays = 7) {
   if (pctChange < -10) direction = 'improving';
   else if (pctChange > 10) direction = 'worsening';
 
-  return { recentCpa: +recentCpa.toFixed(3), priorCpa: +priorCpa.toFixed(3), delta: +delta.toFixed(3), pctChange: +pctChange.toFixed(1), direction };
+  return { recentCpa: +recentCpa.toFixed(4), priorCpa: +priorCpa.toFixed(4), delta: +delta.toFixed(4), pctChange: +pctChange.toFixed(1), direction };
 }
 
 /**
@@ -89,5 +89,5 @@ export function dynamicCpaThresholds(assets) {
   const cpas = assets.filter(a => a.cpa !== null && a.cpa > 0 && a.spend > 2).map(a => a.cpa).sort((a, b) => a - b);
   if (cpas.length === 0) return [0.35, 0.65];
   const median = cpas[Math.floor(cpas.length / 2)];
-  return [+(median * 0.8).toFixed(3), +(median * 1.3).toFixed(3)];
+  return [+(median * 0.8).toFixed(4), +(median * 1.3).toFixed(4)];
 }
