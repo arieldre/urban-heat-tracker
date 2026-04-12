@@ -87,9 +87,9 @@ export default function Header({ selectedCampaign, onCampaignChange, activeTab, 
         <button
           onClick={onThemeToggle}
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          className="font-mono text-[10px] font-semibold px-2 py-1 rounded cursor-pointer border bg-transparent text-text2 border-border hover:border-muted transition-all"
+          className="text-[16px] cursor-pointer px-1 py-0.5 rounded border border-border hover:border-muted transition-all bg-transparent leading-none"
         >
-          {theme === 'dark' ? 'Light' : 'Dark'}
+          {theme === 'dark' ? '\u2600' : '\u263E'}
         </button>
 
         {/* Sync */}
