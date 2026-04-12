@@ -154,8 +154,10 @@ describe('sync-logic', () => {
     await runSync();
 
     const descs = kvStore['tracker/22784768376/descriptions.json'];
-    expect(Array.isArray(descs)).toBe(true);
-    const headline = descs.find(d => d.text === 'Fight like a boss');
+    expect(descs).toBeTruthy();
+    expect(Array.isArray(descs.live)).toBe(true);
+    expect(Array.isArray(descs.history)).toBe(true);
+    const headline = descs.live.find(d => d.text === 'Fight like a boss');
     expect(headline).toBeTruthy();
     expect(headline.performanceLabel).toBe('BEST');
   });

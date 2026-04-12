@@ -187,12 +187,33 @@ export async function runSync() {
       }
     }
 
-    // Finalize text assets
-    const textAssets = Object.values(camp.texts).map(t => {
+    // Finalize & classify text assets (same staleness logic)
+    const liveTexts = [];
+    const historyTexts = [];
+
+    for (const t of Object.values(camp.texts)) {
       t.spend = +t.spend.toFixed(2);
       t.conversions = +t.conversions.toFixed(2);
-      return t;
-    });
+
+      const dailyEntries = Object.entries(t.daily).sort(([a], [b]) => a.localeCompare(b));
+      t.daily = dailyEntries.map(([date, d]) => ({
+        date,
+        spend: +d.spend.toFixed(2),
+        conversions: +d.conversions.toFixed(2),
+        impressions: d.impressions,
+        clicks: d.clicks,
+      }));
+      t.firstSeenAt = dailyEntries[0]?.[0] || to;
+      t.lastSeenAt = dailyEntries[dailyEntries.length - 1]?.[0] || to;
+
+      if (t.lastSeenAt < staleCutoff) {
+        t.status = 'history';
+        historyTexts.push(t);
+      } else {
+        t.status = 'live';
+        liveTexts.push(t);
+      }
+    }
 
     // Merge with previous history (snapshot diff for assets that fully disappeared from API)
     const prevSnapshot = (await kvGet(`tracker/${campId}/snapshot.json`)) || [];
@@ -240,7 +261,7 @@ export async function runSync() {
         assets: liveAssets,
       }),
       kvSet(`tracker/${campId}/history.json`, mergedHistory),
-      kvSet(`tracker/${campId}/descriptions.json`, textAssets),
+      kvSet(`tracker/${campId}/descriptions.json`, { live: liveTexts, history: historyTexts }),
       kvSet(`tracker/${campId}/snapshot.json`, liveKeys),
     ]);
 
@@ -248,7 +269,7 @@ export async function runSync() {
     summary.totalAdded += liveKeys.filter(k => !prevKeys.has(k)).length;
     summary.totalRemoved += newEntries.length;
 
-    console.log(`[sync] ${CAMPAIGN_LABELS[campId]}: ${liveAssets.length} live, ${newEntries.length} → history, ${autoHistory.length} stale, ${textAssets.length} texts`);
+    console.log(`[sync] ${CAMPAIGN_LABELS[campId]}: ${liveAssets.length} live, ${newEntries.length} → history, ${liveTexts.length} live texts, ${historyTexts.length} history texts`);
   }
 
   return { ok: true, ...summary, syncedAt: now };

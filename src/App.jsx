@@ -14,6 +14,7 @@ export default function App() {
   const live = data?.live || [];
   const history = data?.history || [];
   const descriptions = data?.descriptions || [];
+  const descriptionsHistory = data?.descriptionsHistory || [];
   const tags = data?.tags || {};
 
   const stats = {
@@ -61,7 +62,7 @@ export default function App() {
           <HistoryTable entries={history} tags={tags} />
         )}
         {data && activeTab === 'descriptions' && (
-          <DescriptionsTable assets={descriptions} />
+          <DescriptionsTable assets={descriptions} historyAssets={descriptionsHistory} />
         )}
 
         {data && !loading && live.length === 0 && history.length === 0 && (

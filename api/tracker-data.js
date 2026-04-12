@@ -34,7 +34,8 @@ export default async function handler(req, res) {
       live: live?.assets || [],
       lastSyncedAt: live?.lastSyncedAt || null,
       history: history || [],
-      descriptions: descriptions || [],
+      descriptions: descriptions?.live || descriptions || [],
+      descriptionsHistory: descriptions?.history || [],
       tags: tags || {},
     });
   } catch (e) {
