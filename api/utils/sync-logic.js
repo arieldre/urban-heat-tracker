@@ -147,7 +147,7 @@ export async function runSync() {
       v.orientation = detectOrientation(v.name, v.fieldType);
       v.spend = +v.spend.toFixed(2);
       v.conversions = +v.conversions.toFixed(2);
-      v.cpa = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(2) : null;
+      v.cpa = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(4) : null;
       v.ctr = v.impressions > 0 ? +((v.clicks / v.impressions) * 100).toFixed(3) : null;
       v.url = v.youtubeId ? `https://www.youtube.com/watch?v=${v.youtubeId}` : null;
 
@@ -159,7 +159,7 @@ export async function runSync() {
         conversions: +d.conversions.toFixed(2),
         impressions: d.impressions,
         clicks: d.clicks,
-        cpa: d.conversions > 0 ? +(d.spend / d.conversions).toFixed(2) : null,
+        cpa: d.conversions > 0 ? +(d.spend / d.conversions).toFixed(4) : null,
       }));
 
       v.firstSeenAt = dailyEntries[0]?.[0] || to;

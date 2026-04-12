@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import Badge from './Badge.jsx';
 import TagEditor from './TagEditor.jsx';
+import VideoPreview from './VideoPreview.jsx';
+import LifespanChart from './LifespanChart.jsx';
 import { cpaTrend, spendVelocity, daysActive, dynamicCpaThresholds } from '../utils/trends.js';
 
 
@@ -139,11 +141,13 @@ export default function LiveTable({ assets, tags }) {
                   {/* Creative */}
                   <td className="flex items-center gap-3">
                     {asset.youtubeId && (
-                      <img
-                        src={`https://img.youtube.com/vi/${asset.youtubeId}/default.jpg`}
-                        alt=""
-                        className="w-[48px] h-[36px] rounded object-cover shrink-0"
-                      />
+                      <VideoPreview youtubeId={asset.youtubeId}>
+                        <img
+                          src={`https://img.youtube.com/vi/${asset.youtubeId}/default.jpg`}
+                          alt=""
+                          className="w-[48px] h-[36px] rounded object-cover shrink-0"
+                        />
+                      </VideoPreview>
                     )}
                     <div className="min-w-0">
                       <div className="font-mono text-[11px] font-medium text-text truncate max-w-[250px]">
@@ -277,6 +281,13 @@ export default function LiveTable({ assets, tags }) {
           })}
         </tbody>
       </table>
+
+      {/* Lifespan chart */}
+      {sorted.length > 0 && (
+        <div className="border-t border-border mt-2">
+          <LifespanChart assets={sorted} thresholds={[goodCpa, midCpa]} />
+        </div>
+      )}
     </div>
   );
 }

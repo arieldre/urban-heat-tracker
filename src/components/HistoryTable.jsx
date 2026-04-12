@@ -48,7 +48,7 @@ export default function HistoryTable({ entries, tags }) {
               </td>
               <td><Badge label={entry.orientation} /></td>
               <td className="font-mono text-[11px] text-orange">
-                {entry.lastCpa !== null && entry.lastCpa !== undefined ? `$${entry.lastCpa.toFixed(2)}` : '\u2013'}
+                {entry.lastCpa !== null && entry.lastCpa !== undefined ? `$${entry.lastCpa.toFixed(3)}` : '\u2013'}
               </td>
               <td className="font-mono text-[11px] text-text2">
                 {entry.lastSpend > 0 ? `$${entry.lastSpend.toFixed(0)}` : '\u2013'}

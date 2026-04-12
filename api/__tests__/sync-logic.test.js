@@ -106,8 +106,8 @@ describe('sync-logic', () => {
     expect(video.spend).toBe(1.3);
     // 10 + 15 = 25
     expect(video.conversions).toBe(25);
-    // 1.3 / 25 = 0.05
-    expect(video.cpa).toBe(0.05);
+    // 1.3 / 25 = 0.052
+    expect(video.cpa).toBe(0.052);
     expect(video.impressions).toBe(3000);
     expect(video.clicks).toBe(150);
   });
