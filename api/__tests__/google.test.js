@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CAMPAIGN_IDS, CAMPAIGN_LABELS, VIDEO_TYPES, TEXT_TYPES,
-  orientationFromFieldType,
+  orientationFromFieldType, detectOrientation,
 } from '../utils/google.js';
 
 describe('google utils', () => {
@@ -60,6 +60,29 @@ describe('google utils', () => {
     it('returns 16x9 for null/undefined', () => {
       expect(orientationFromFieldType(null)).toBe('16x9');
       expect(orientationFromFieldType(undefined)).toBe('16x9');
+    });
+  });
+
+  describe('detectOrientation', () => {
+    it('detects 9x16 from 1080x1920 in name', () => {
+      expect(detectOrientation('UH_UA_ReikaSolo_30s_1080x1920_VD', 'YOUTUBE_VIDEO')).toBe('9x16');
+    });
+
+    it('detects 1x1 from 1080x1080 in name', () => {
+      expect(detectOrientation('UH_UA_WhatIsYourName_30s_1080x1080_VD', 'YOUTUBE_VIDEO')).toBe('1x1');
+    });
+
+    it('detects 16x9 from 1920x1080 in name', () => {
+      expect(detectOrientation('UH_UA_KillCount_30s_1920x1080_VD', 'YOUTUBE_VIDEO')).toBe('16x9');
+    });
+
+    it('falls back to fieldType when name has no resolution', () => {
+      expect(detectOrientation('Urban Heat - High Action FPS', 'PORTRAIT_YOUTUBE_VIDEO')).toBe('9x16');
+      expect(detectOrientation('Urban Heat - High Action FPS', 'YOUTUBE_VIDEO')).toBe('16x9');
+    });
+
+    it('falls back to fieldType when name is null', () => {
+      expect(detectOrientation(null, 'SQUARE_YOUTUBE_VIDEO')).toBe('1x1');
     });
   });
 });

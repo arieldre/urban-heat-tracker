@@ -87,6 +87,24 @@ export function orientationFromFieldType(ft) {
 }
 
 /**
+ * Detect orientation from asset name resolution (e.g. "1080x1920" → 9x16).
+ * Falls back to fieldType-based detection.
+ */
+export function detectOrientation(name, fieldType) {
+  if (name) {
+    const m = name.match(/(\d{3,4})x(\d{3,4})/);
+    if (m) {
+      const w = parseInt(m[1]);
+      const h = parseInt(m[2]);
+      if (w === h) return '1x1';
+      if (h > w) return '9x16';
+      return '16x9';
+    }
+  }
+  return orientationFromFieldType(fieldType);
+}
+
+/**
  * Fetch YouTube video titles via oEmbed (no auth required).
  */
 export async function fetchYoutubeTitles(videoIds) {

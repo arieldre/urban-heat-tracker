@@ -5,7 +5,7 @@
 import { kvGet, kvSet } from './kv.js';
 import {
   getAccessToken, gaQuery, CAMPAIGN_IDS, CAMPAIGN_LABELS,
-  VIDEO_TYPES, TEXT_TYPES, orientationFromFieldType, fetchYoutubeTitles,
+  VIDEO_TYPES, TEXT_TYPES, detectOrientation, fetchYoutubeTitles,
 } from './google.js';
 
 /**
@@ -78,7 +78,7 @@ export async function runSync() {
         youtubeId: asset.youtubeVideoAsset?.youtubeVideoId || null,
         name: asset.name || '',
         fieldType,
-        orientation: isVideo ? orientationFromFieldType(fieldType) : null,
+        orientation: null, // set after name is finalized
         text: asset.textAsset?.text || null,
         performanceLabel: 'UNSPECIFIED',
         spend: 0,
@@ -144,6 +144,7 @@ export async function runSync() {
       if (!v.name && v.youtubeId && ytTitles[v.youtubeId]) {
         v.name = ytTitles[v.youtubeId];
       }
+      v.orientation = detectOrientation(v.name, v.fieldType);
       v.spend = +v.spend.toFixed(2);
       v.conversions = +v.conversions.toFixed(2);
       v.cpa = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(2) : null;
