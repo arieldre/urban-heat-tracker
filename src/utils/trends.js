@@ -60,8 +60,8 @@ export function spendVelocity(daily, windowDays = 7) {
   const recentSpend = +sum(recent, 'spend').toFixed(2);
   const priorSpend = +sum(prior, 'spend').toFixed(2);
 
-  if (priorSpend === 0 && recentSpend === 0) return { recentSpend, priorSpend, direction: 'new' };
-  if (priorSpend === 0) return { recentSpend, priorSpend, direction: 'scaling' };
+  if (priorSpend === 0 && recentSpend === 0) return { recentSpend, priorSpend, pctChange: null, direction: 'new' };
+  if (priorSpend === 0) return { recentSpend, priorSpend, pctChange: null, direction: 'scaling' };
 
   const pctChange = ((recentSpend - priorSpend) / priorSpend) * 100;
 

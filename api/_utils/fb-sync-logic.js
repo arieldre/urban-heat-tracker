@@ -194,20 +194,17 @@ export async function runFBSync() {
   const newEntries = [...autoHistory, ...apiRemovals].filter(h => !existingHistoryKeys.has(h.key));
   const mergedHistory = [...prevHistory, ...newEntries];
 
-  // Build campaign list — only campaigns where campaign itself is ACTIVE
+  // Build campaign list — campaigns where campaign is ACTIVE (or unknown but has ACTIVE ads)
   const campaignMap = {};
   for (const asset of liveAssets) {
     const cid = asset.campaignId || 'unknown';
     if (!campaignMap[cid]) {
-      campaignMap[cid] = {
-        id: cid,
-        name: asset.campaignName || cid,
-        campaignStatus: asset.campaignStatus,
-      };
+      campaignMap[cid] = { id: cid, name: asset.campaignName || cid, campaignStatus: asset.campaignStatus, hasActiveAd: false };
     }
+    if (asset.status === 'ACTIVE') campaignMap[cid].hasActiveAd = true;
   }
   const campaigns = Object.values(campaignMap)
-    .filter(c => c.campaignStatus === 'ACTIVE')
+    .filter(c => c.campaignStatus === 'ACTIVE' || (c.campaignStatus == null && c.hasActiveAd))
     .map(c => ({ id: c.id, name: c.name, shortLabel: deriveFBShortLabel(c.name) }));
 
   const liveKeys = liveAssets.map(a => a.id);

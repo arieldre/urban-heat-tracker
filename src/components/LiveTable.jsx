@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import Badge from './Badge.jsx';
 import TagEditor from './TagEditor.jsx';
 import VideoPreview from './VideoPreview.jsx';
@@ -132,9 +132,8 @@ export default function LiveTable({ assets, tags }) {
             const isExpanded = expandedId === asset.key;
 
             return (
-              <>
+              <Fragment key={asset.key}>
                 <tr
-                  key={asset.key}
                   className={`cursor-pointer ${isTop ? 'border-l-3 border-l-accent bg-[rgba(232,255,71,0.02)]' : ''}`}
                   onClick={() => setExpandedId(isExpanded ? null : asset.key)}
                 >
@@ -276,7 +275,7 @@ export default function LiveTable({ assets, tags }) {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </tbody>

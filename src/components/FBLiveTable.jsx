@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import Badge from './Badge.jsx';
 import { cpaTrend, spendVelocity, daysActive, dynamicCpaThresholds } from '../utils/trends.js';
 
@@ -143,9 +143,8 @@ export default function FBLiveTable({ assets }) {
             const isExpanded = expandedId === asset.key;
 
             return (
-              <>
+              <Fragment key={asset.key}>
                 <tr
-                  key={asset.key}
                   className={`cursor-pointer ${asset.status !== 'ACTIVE' ? 'opacity-40' : ''} ${isTop ? 'border-l-3 border-l-[#1877f2] bg-[rgba(24,119,242,0.02)]' : ''}`}
                   onClick={() => setExpandedId(isExpanded ? null : asset.key)}
                 >
@@ -263,7 +262,7 @@ export default function FBLiveTable({ assets }) {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             );
           })}
           {sorted.length === 0 && (
