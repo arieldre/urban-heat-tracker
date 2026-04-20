@@ -43,6 +43,7 @@ export default function FBLiveTable({ assets }) {
   const [sortDir, setSortDir] = useState('asc');
   const [expandedId, setExpandedId] = useState(null);
   const [search, setSearch] = useState('');
+  const [activeOnly, setActiveOnly] = useState(true);
 
   // Use purchases as the CPA metric (FB AEO campaigns optimize for purchase)
   const enriched = useMemo(() => assets.map(a => ({
@@ -59,13 +60,14 @@ export default function FBLiveTable({ assets }) {
   ), [assets]);
 
   const filtered = useMemo(() => {
-    if (!search) return enriched;
+    let result = activeOnly ? enriched.filter(a => a.status === 'ACTIVE') : enriched;
+    if (!search) return result;
     const q = search.toLowerCase();
-    return enriched.filter(a =>
+    return result.filter(a =>
       (a.name || '').toLowerCase().includes(q) ||
       (a.campaignName || '').toLowerCase().includes(q)
     );
-  }, [enriched, search]);
+  }, [enriched, search, activeOnly]);
 
   const sorted = useMemo(() => sortAssets(filtered, sortKey, sortDir), [filtered, sortKey, sortDir]);
 
@@ -110,6 +112,16 @@ export default function FBLiveTable({ assets }) {
           placeholder="Search creatives or campaigns..."
           className="bg-surface2 border border-border rounded px-3 py-1 text-[11px] font-mono text-text outline-none focus:border-[rgba(24,119,242,0.4)] placeholder:text-muted w-[240px]"
         />
+        <button
+          onClick={() => setActiveOnly(v => !v)}
+          className={`font-mono text-[10px] font-semibold px-2.5 py-1 rounded border cursor-pointer transition-all whitespace-nowrap ${
+            activeOnly
+              ? 'bg-[#1877f2] text-white border-[#1877f2]'
+              : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
+          }`}
+        >
+          {activeOnly ? 'Active' : 'All'}
+        </button>
         <div className="ml-auto font-mono text-[10px] text-muted">
           {filtered.length} ads &middot; CPA thresholds: &le;${goodCpa} good &middot; &gt;${midCpa} high
         </div>
