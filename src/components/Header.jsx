@@ -3,6 +3,7 @@ import { CAMPAIGNS } from '../config.js';
 export default function Header({
   network, onNetworkChange,
   selectedCampaign, onCampaignChange,
+  fbCampaigns, selectedFBCampaign, onFBCampaignChange,
   activeTab, onTabChange,
   stats, lastSyncedAt, onSync, syncing,
   theme, onThemeToggle,
@@ -22,6 +23,8 @@ export default function Header({
 
   const tabs = network === 'facebook' ? fbTabs : googleTabs;
   const camp = CAMPAIGNS.find(c => c.id === selectedCampaign);
+  const fbCamp = fbCampaigns?.find(c => c.id === selectedFBCampaign);
+  const fbSubLabel = selectedFBCampaign === 'all' ? 'All' : (fbCamp?.shortLabel || '...');
 
   return (
     <header className="bg-surface border-b border-border flex items-center px-5 h-[52px] shrink-0 gap-3">
@@ -30,7 +33,7 @@ export default function Header({
         Urban Heat
         <br />
         <span className="text-text2 font-normal">
-          / {network === 'facebook' ? 'Facebook' : (camp?.shortLabel || '...')}
+          / {network === 'facebook' ? `FB · ${fbSubLabel}` : (camp?.shortLabel || '...')}
         </span>
       </div>
 
@@ -58,7 +61,7 @@ export default function Header({
         </button>
       </div>
 
-      {/* Campaign toggle — Google only */}
+      {/* Campaign toggle — Google */}
       {network === 'google' && (
         <div className="flex gap-1 mr-2">
           {CAMPAIGNS.map(c => (
@@ -68,6 +71,25 @@ export default function Header({
               className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
                 selectedCampaign === c.id
                   ? 'bg-accent text-[#0a0c0f] border-accent'
+                  : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
+              }`}
+            >
+              {c.shortLabel}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Campaign toggle — Facebook */}
+      {network === 'facebook' && fbCampaigns && fbCampaigns.length > 0 && (
+        <div className="flex gap-1 mr-2">
+          {[{ id: 'all', shortLabel: 'All' }, ...fbCampaigns].map(c => (
+            <button
+              key={c.id}
+              onClick={() => onFBCampaignChange(c.id)}
+              className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
+                selectedFBCampaign === c.id
+                  ? 'bg-[#1877f2] text-white border-[#1877f2]'
                   : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
               }`}
             >

@@ -1,36 +1,36 @@
 import { useState, useEffect, useCallback } from 'react';
 
-let cache = null;
+const cache = {};
 
-export function useFBData() {
-  const [data, setData] = useState(cache);
-  const [loading, setLoading] = useState(!cache);
+export function useFBData(campaignId = 'all') {
+  const [data, setData] = useState(cache[campaignId] || null);
+  const [loading, setLoading] = useState(!cache[campaignId]);
   const [error, setError] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch('/api/fb-tracker-data');
+      const r = await fetch(`/api/fb-tracker-data?campaignId=${campaignId}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = await r.json();
-      cache = json;
+      cache[campaignId] = json;
       setData(json);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [campaignId]);
 
   useEffect(() => {
-    if (cache) {
-      setData(cache);
+    if (cache[campaignId]) {
+      setData(cache[campaignId]);
       setLoading(false);
     } else {
       fetchData();
     }
-  }, [fetchData]);
+  }, [campaignId, fetchData]);
 
   return { data, loading, error, refresh: fetchData };
 }

@@ -15,6 +15,7 @@ import { CAMPAIGNS } from './config.js';
 export default function App() {
   const [network, setNetwork] = useState('google');
   const [campaignId, setCampaignId] = useState(CAMPAIGNS[0].id);
+  const [fbCampaignId, setFBCampaignId] = useState('all');
   const [activeTab, setActiveTab] = useState('live');
   const [syncing, setSyncing] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('uh-theme') || 'dark');
@@ -22,7 +23,7 @@ export default function App() {
   const [snapshotMsg, setSnapshotMsg] = useState(null);
 
   const { data: googleData, loading: googleLoading, error: googleError, refresh: googleRefresh } = useTrackerData(campaignId);
-  const { data: fbData, loading: fbLoading, error: fbError, refresh: fbRefresh } = useFBData();
+  const { data: fbData, loading: fbLoading, error: fbError, refresh: fbRefresh } = useFBData(fbCampaignId);
 
   const data = network === 'facebook' ? fbData : googleData;
   const loading = network === 'facebook' ? fbLoading : googleLoading;
@@ -39,6 +40,9 @@ export default function App() {
       setActiveTab('live');
     }
   }, [network, activeTab]);
+
+  // FB campaign list comes from any FB data response (always included)
+  const fbCampaigns = fbData?.campaigns || [];
 
   const live = data?.live || [];
   const history = data?.history || [];
@@ -89,6 +93,9 @@ export default function App() {
         onNetworkChange={setNetwork}
         selectedCampaign={campaignId}
         onCampaignChange={setCampaignId}
+        fbCampaigns={fbCampaigns}
+        selectedFBCampaign={fbCampaignId}
+        onFBCampaignChange={setFBCampaignId}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         stats={stats}

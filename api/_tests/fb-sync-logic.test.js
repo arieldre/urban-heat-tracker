@@ -80,7 +80,7 @@ describe('fb-sync-logic', () => {
     expect(result.synced).toBe(1);
   });
 
-  it('stores live assets in KV', async () => {
+  it('stores live assets in KV (global + per-campaign)', async () => {
     const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     await runFBSync();
 
@@ -88,9 +88,21 @@ describe('fb-sync-logic', () => {
     expect(live).toBeTruthy();
     expect(live.lastSyncedAt).toBeTruthy();
     expect(Array.isArray(live.assets)).toBe(true);
+
+    // Per-campaign KV
+    const campLive = kvStore['tracker/fb/camp_001/live.json'];
+    expect(campLive).toBeTruthy();
+    expect(Array.isArray(campLive.assets)).toBe(true);
+
+    // campaigns.json written
+    const campaigns = kvStore['tracker/fb/campaigns.json'];
+    expect(Array.isArray(campaigns)).toBe(true);
+    expect(campaigns.length).toBeGreaterThan(0);
+    expect(campaigns[0]).toHaveProperty('id');
+    expect(campaigns[0]).toHaveProperty('shortLabel');
   });
 
-  it('moves stale ad to history with correct removedAt', async () => {
+  it('moves stale ad to history with correct removedAt (global + per-campaign)', async () => {
     const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     await runFBSync();
 
@@ -103,6 +115,12 @@ describe('fb-sync-logic', () => {
     expect(staleInHistory).toBeTruthy();
     expect(staleInHistory.removedAt).toBe(staleDate);
     expect(staleInHistory.reason).toContain('No data since');
+
+    // Per-campaign history also contains it
+    const campHistory = kvStore['tracker/fb/camp_001/history.json'];
+    expect(Array.isArray(campHistory)).toBe(true);
+    const staleInCampHistory = campHistory.find(h => h.id === 'ad_002');
+    expect(staleInCampHistory).toBeTruthy();
   });
 
   it('computes purchases + installs correctly', async () => {

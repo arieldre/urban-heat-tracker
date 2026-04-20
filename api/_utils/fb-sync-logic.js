@@ -1,11 +1,17 @@
 /**
  * Core FB sync logic — mirrors sync-logic.js patterns for Google Ads.
  * Fetches Facebook ad creatives + daily insights, diffs against stored
- * snapshots, and writes live/history to KV.
+ * snapshots, and writes live/history to KV (both global + per-campaign).
  */
 import { kvGet, kvSet } from './kv.js';
 import { fetchAds, fetchInsights, extractActions } from './facebook.js';
 import { detectOrientation } from './google.js';
+
+function deriveFBShortLabel(name = '') {
+  const parts = name.replace(/^UH_FB_/i, '').replace(/^UH_/i, '').split('_');
+  const filtered = parts.filter(p => !/^\d{6}$/.test(p));
+  return filtered.slice(0, 3).join(' ').slice(0, 14) || name.slice(0, 14);
+}
 
 const STALE_DAYS = 3;
 
@@ -187,15 +193,41 @@ export async function runFBSync() {
   const newEntries = [...autoHistory, ...apiRemovals].filter(h => !existingHistoryKeys.has(h.key));
   const mergedHistory = [...prevHistory, ...newEntries];
 
+  // Group into per-campaign buckets
+  const campaignBuckets = {};
+  for (const asset of liveAssets) {
+    const cid = asset.campaignId || 'unknown';
+    if (!campaignBuckets[cid]) campaignBuckets[cid] = { id: cid, name: asset.campaignName || cid, live: [], history: [] };
+    campaignBuckets[cid].live.push(asset);
+  }
+  for (const entry of mergedHistory) {
+    const cid = entry.campaignId || 'unknown';
+    if (!campaignBuckets[cid]) campaignBuckets[cid] = { id: cid, name: entry.campaignName || cid, live: [], history: [] };
+    campaignBuckets[cid].history.push(entry);
+  }
+
+  const campaigns = Object.values(campaignBuckets).map(c => ({
+    id: c.id,
+    name: c.name,
+    shortLabel: deriveFBShortLabel(c.name),
+  }));
+
   const liveKeys = liveAssets.map(a => a.id);
+  const perCampaignWrites = Object.values(campaignBuckets).flatMap(c => [
+    kvSet(`tracker/fb/${c.id}/live.json`, { lastSyncedAt: now, assets: c.live }),
+    kvSet(`tracker/fb/${c.id}/history.json`, c.history),
+  ]);
+
   await Promise.all([
     kvSet('tracker/fb/live.json', { lastSyncedAt: now, assets: liveAssets }),
     kvSet('tracker/fb/history.json', mergedHistory),
     kvSet('tracker/fb/snapshot.json', liveKeys),
+    kvSet('tracker/fb/campaigns.json', campaigns),
+    ...perCampaignWrites,
   ]);
 
   const added = liveKeys.filter(k => !prevIds.has(k)).length;
-  console.log(`[fb-sync] ${liveAssets.length} live, ${newEntries.length} → history`);
+  console.log(`[fb-sync] ${liveAssets.length} live, ${newEntries.length} → history, ${campaigns.length} campaigns`);
 
-  return { ok: true, synced: 1, totalAdded: added, totalRemoved: newEntries.length, syncedAt: now };
+  return { ok: true, synced: campaigns.length, totalAdded: added, totalRemoved: newEntries.length, syncedAt: now };
 }
