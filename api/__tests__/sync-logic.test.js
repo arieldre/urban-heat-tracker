@@ -199,6 +199,42 @@ describe('sync-logic', () => {
     const removed = history.find(h => h.youtubeId === 'def456');
     expect(removed).toBeTruthy();
     expect(removed.reason).toBe('Removed from campaign');
+    // removedAt must be lastSeenAt from the live asset, not today's date
+    expect(removed.removedAt).toBe(recentDate);
+    expect(removed.lastSeenAt).toBe(recentDate);
+  });
+
+  it('api removal: removedAt uses lastSeenAt not sync date', async () => {
+    const { runSync } = await import('../utils/sync-logic.js');
+
+    // First sync: seed campaign 2 video (lastSeenAt = recentDate)
+    await runSync();
+
+    // Second sync: campaign 2 video gone from API entirely
+    const { gaQuery } = await import('../utils/google.js');
+    gaQuery.mockResolvedValueOnce({
+      results: [
+        {
+          campaign: { id: '22784768376', name: 'H48fastprogression' },
+          asset: { id: '100', name: 'TestVideo', youtubeVideoAsset: { youtubeVideoId: 'abc123' } },
+          adGroupAdAssetView: { fieldType: 'YOUTUBE_VIDEO', performanceLabel: 'GOOD', enabled: true },
+          segments: { date: recentDate },
+          metrics: { impressions: '1000', clicks: '50', costMicros: '500000', conversions: '10' },
+        },
+      ],
+    });
+
+    await runSync();
+
+    const history = kvStore['tracker/22879160345/history.json'];
+    const removed = history.find(h => h.youtubeId === 'def456');
+    expect(removed).toBeTruthy();
+    // Must use asset's actual last data date, not today
+    expect(removed.removedAt).toBe(recentDate);
+    expect(removed.lastSeenAt).toBe(recentDate);
+    // Must NOT be today's date
+    const today = new Date().toISOString().slice(0, 10);
+    expect(removed.removedAt).not.toBe(today);
   });
 
   it('sets status=pending for zero-spend assets', async () => {

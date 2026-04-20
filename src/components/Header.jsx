@@ -1,40 +1,81 @@
 import { CAMPAIGNS } from '../config.js';
 
-export default function Header({ selectedCampaign, onCampaignChange, activeTab, onTabChange, stats, lastSyncedAt, onSync, syncing, theme, onThemeToggle, onSnapshot, snapshotMsg, onH2H }) {
-  const tabs = [
+export default function Header({
+  network, onNetworkChange,
+  selectedCampaign, onCampaignChange,
+  activeTab, onTabChange,
+  stats, lastSyncedAt, onSync, syncing,
+  theme, onThemeToggle,
+  onSnapshot, snapshotMsg, onH2H,
+}) {
+  const googleTabs = [
     { id: 'live', label: 'Live' },
     { id: 'history', label: 'History' },
     { id: 'descriptions', label: 'Descriptions' },
     { id: 'compare', label: 'Compare' },
   ];
 
+  const fbTabs = [
+    { id: 'live', label: 'Live' },
+    { id: 'history', label: 'History' },
+  ];
+
+  const tabs = network === 'facebook' ? fbTabs : googleTabs;
   const camp = CAMPAIGNS.find(c => c.id === selectedCampaign);
 
   return (
     <header className="bg-surface border-b border-border flex items-center px-5 h-[52px] shrink-0 gap-3">
       {/* Logo */}
-      <div className="font-mono text-xs font-semibold text-accent tracking-wider uppercase leading-tight whitespace-nowrap mr-3">
+      <div className="font-mono text-xs font-semibold text-accent tracking-wider uppercase leading-tight whitespace-nowrap mr-2">
         Urban Heat
         <br />
-        <span className="text-text2 font-normal">/ {camp?.shortLabel || '...'}</span>
+        <span className="text-text2 font-normal">
+          / {network === 'facebook' ? 'Facebook' : (camp?.shortLabel || '...')}
+        </span>
       </div>
 
-      {/* Campaign toggle */}
-      <div className="flex gap-1 mr-3">
-        {CAMPAIGNS.map(c => (
-          <button
-            key={c.id}
-            onClick={() => onCampaignChange(c.id)}
-            className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
-              selectedCampaign === c.id
-                ? 'bg-accent text-[#0a0c0f] border-accent'
-                : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
-            }`}
-          >
-            {c.shortLabel}
-          </button>
-        ))}
+      {/* Network toggle */}
+      <div className="flex gap-1 border border-border rounded overflow-hidden shrink-0">
+        <button
+          onClick={() => onNetworkChange('google')}
+          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap ${
+            network === 'google'
+              ? 'bg-accent text-[#0a0c0f]'
+              : 'bg-transparent text-text2 hover:text-text'
+          }`}
+        >
+          Google
+        </button>
+        <button
+          onClick={() => onNetworkChange('facebook')}
+          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap border-l border-border ${
+            network === 'facebook'
+              ? 'bg-[#1877f2] text-white'
+              : 'bg-transparent text-text2 hover:text-text'
+          }`}
+        >
+          Facebook
+        </button>
       </div>
+
+      {/* Campaign toggle — Google only */}
+      {network === 'google' && (
+        <div className="flex gap-1 mr-2">
+          {CAMPAIGNS.map(c => (
+            <button
+              key={c.id}
+              onClick={() => onCampaignChange(c.id)}
+              className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
+                selectedCampaign === c.id
+                  ? 'bg-accent text-[#0a0c0f] border-accent'
+                  : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
+              }`}
+            >
+              {c.shortLabel}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex h-full items-stretch">
@@ -44,19 +85,23 @@ export default function Header({ selectedCampaign, onCampaignChange, activeTab, 
             onClick={() => onTabChange(t.id)}
             className={`font-mono text-[11px] font-semibold uppercase tracking-wider px-3 cursor-pointer border-b-2 flex items-center gap-1.5 transition-colors select-none whitespace-nowrap ${
               activeTab === t.id
-                ? 'text-accent border-accent'
+                ? network === 'facebook'
+                  ? 'text-[#1877f2] border-[#1877f2]'
+                  : 'text-accent border-accent'
                 : 'text-text2 border-transparent hover:text-text'
             }`}
           >
             <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              activeTab === t.id ? 'bg-accent shadow-[0_0_6px_var(--color-accent)]' : 'bg-muted'
+              activeTab === t.id
+                ? network === 'facebook' ? 'bg-[#1877f2]' : 'bg-accent shadow-[0_0_6px_var(--color-accent)]'
+                : 'bg-muted'
             }`} />
             {t.label}
           </div>
         ))}
       </div>
 
-      {/* Right side controls */}
+      {/* Right side */}
       <div className="ml-auto flex gap-3 items-center">
         <div className="font-mono text-[11px] text-text2 whitespace-nowrap">
           <strong className="text-text">{stats.live}</strong> live
@@ -65,16 +110,16 @@ export default function Header({ selectedCampaign, onCampaignChange, activeTab, 
           <strong className="text-text">{stats.history}</strong> hist
         </div>
 
-        {/* H2H button */}
-        <button
-          onClick={onH2H}
-          title="Head-to-Head comparison"
-          className="font-mono text-[10px] font-semibold px-2 py-1 rounded cursor-pointer border bg-transparent text-purple border-[rgba(192,132,252,0.25)] hover:border-purple transition-all"
-        >
-          H2H
-        </button>
+        {network === 'google' && (
+          <button
+            onClick={onH2H}
+            title="Head-to-Head comparison"
+            className="font-mono text-[10px] font-semibold px-2 py-1 rounded cursor-pointer border bg-transparent text-purple border-[rgba(192,132,252,0.25)] hover:border-purple transition-all"
+          >
+            H2H
+          </button>
+        )}
 
-        {/* Snapshot */}
         <button
           onClick={onSnapshot}
           title="Copy shareable link"
@@ -83,7 +128,6 @@ export default function Header({ selectedCampaign, onCampaignChange, activeTab, 
           {snapshotMsg || 'Share'}
         </button>
 
-        {/* Theme toggle */}
         <button
           onClick={onThemeToggle}
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
@@ -92,7 +136,6 @@ export default function Header({ selectedCampaign, onCampaignChange, activeTab, 
           {theme === 'dark' ? '\u2600' : '\u263E'}
         </button>
 
-        {/* Sync */}
         <button
           onClick={onSync}
           disabled={syncing}
