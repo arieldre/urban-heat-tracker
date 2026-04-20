@@ -42,12 +42,34 @@ async function graphAll(url, params = {}) {
  * Returns: [{ id, name, status, campaignId, campaignName, creative }]
  */
 export async function fetchAds() {
+  // Fetch ad list + campaign in one call (no nested creative — fetched separately below)
   const all = await graphAll(`${BASE}/${FB_AD_ACCOUNT_ID}/ads`, {
-    fields: 'id,name,status,campaign{id,name},creative{id,name,thumbnail_url,video_id,image_url}',
-    limit: '500',
+    fields: 'id,name,status,campaign{id,name},creative{id}',
+    limit: '100',
   });
-  // Exclude deleted ads — track active and paused
-  return all.filter(a => a.status !== 'DELETED' && a.status !== 'ARCHIVED');
+  const ads = all.filter(a => a.status !== 'DELETED' && a.status !== 'ARCHIVED');
+
+  // Batch fetch creative thumbnails (25 per batch via /?ids=)
+  const creativeIds = [...new Set(ads.map(a => a.creative?.id).filter(Boolean))];
+  const creativeMap = {};
+
+  for (let i = 0; i < creativeIds.length; i += 25) {
+    const batch = creativeIds.slice(i, i + 25);
+    const qs = new URLSearchParams({
+      ids: batch.join(','),
+      fields: 'id,thumbnail_url,video_id,image_url',
+      access_token: FB_ACCESS_TOKEN,
+    });
+    const r = await fetch(`${BASE}/?${qs}`);
+    const data = await r.json();
+    if (!data.error) Object.assign(creativeMap, data);
+  }
+
+  // Merge creative data back onto each ad
+  return ads.map(a => ({
+    ...a,
+    creative: a.creative?.id ? { ...a.creative, ...(creativeMap[a.creative.id] || {}) } : null,
+  }));
 }
 
 /**
@@ -60,7 +82,7 @@ export async function fetchInsights(since, until) {
     time_increment: '1',
     fields: 'ad_id,spend,impressions,clicks,actions',
     time_range: JSON.stringify({ since, until }),
-    limit: '500',
+    limit: '100',
   });
 }
 
