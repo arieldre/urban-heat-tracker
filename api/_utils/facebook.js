@@ -42,11 +42,12 @@ async function graphAll(url, params = {}) {
  * Returns: [{ id, name, status, campaignId, campaignName, creative }]
  */
 export async function fetchAds() {
-  return graphAll(`${BASE}/${FB_AD_ACCOUNT_ID}/ads`, {
+  const all = await graphAll(`${BASE}/${FB_AD_ACCOUNT_ID}/ads`, {
     fields: 'id,name,status,campaign{id,name},creative{id,name,thumbnail_url,video_id,image_url}',
-    filtering: JSON.stringify([{ field: 'status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }]),
     limit: '500',
   });
+  // Exclude deleted ads — track active and paused
+  return all.filter(a => a.status !== 'DELETED' && a.status !== 'ARCHIVED');
 }
 
 /**
