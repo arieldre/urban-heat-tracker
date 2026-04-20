@@ -193,40 +193,23 @@ export async function runFBSync() {
   const newEntries = [...autoHistory, ...apiRemovals].filter(h => !existingHistoryKeys.has(h.key));
   const mergedHistory = [...prevHistory, ...newEntries];
 
-  // Group into per-campaign buckets
-  const campaignBuckets = {};
+  // Build campaign list from live assets with at least one ACTIVE ad
+  const campaignMap = {};
   for (const asset of liveAssets) {
     const cid = asset.campaignId || 'unknown';
-    if (!campaignBuckets[cid]) campaignBuckets[cid] = { id: cid, name: asset.campaignName || cid, live: [], history: [] };
-    campaignBuckets[cid].live.push(asset);
+    if (!campaignMap[cid]) campaignMap[cid] = { id: cid, name: asset.campaignName || cid, hasActive: false };
+    if (asset.status === 'ACTIVE') campaignMap[cid].hasActive = true;
   }
-  for (const entry of mergedHistory) {
-    const cid = entry.campaignId || 'unknown';
-    if (!campaignBuckets[cid]) campaignBuckets[cid] = { id: cid, name: entry.campaignName || cid, live: [], history: [] };
-    campaignBuckets[cid].history.push(entry);
-  }
-
-  // Only list campaigns with at least one ACTIVE ad (excludes paused/historical campaigns)
-  const campaigns = Object.values(campaignBuckets)
-    .filter(c => c.live.some(a => a.status === 'ACTIVE'))
-    .map(c => ({
-      id: c.id,
-      name: c.name,
-      shortLabel: deriveFBShortLabel(c.name),
-    }));
+  const campaigns = Object.values(campaignMap)
+    .filter(c => c.hasActive)
+    .map(c => ({ id: c.id, name: c.name, shortLabel: deriveFBShortLabel(c.name) }));
 
   const liveKeys = liveAssets.map(a => a.id);
-  const perCampaignWrites = Object.values(campaignBuckets).flatMap(c => [
-    kvSet(`tracker/fb/${c.id}/live.json`, { lastSyncedAt: now, assets: c.live }),
-    kvSet(`tracker/fb/${c.id}/history.json`, c.history),
-  ]);
-
   await Promise.all([
     kvSet('tracker/fb/live.json', { lastSyncedAt: now, assets: liveAssets }),
     kvSet('tracker/fb/history.json', mergedHistory),
     kvSet('tracker/fb/snapshot.json', liveKeys),
     kvSet('tracker/fb/campaigns.json', campaigns),
-    ...perCampaignWrites,
   ]);
 
   const added = liveKeys.filter(k => !prevIds.has(k)).length;
