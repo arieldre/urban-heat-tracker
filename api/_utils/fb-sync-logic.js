@@ -22,7 +22,7 @@ export async function runFBSync() {
 
   const earliest = new Date('2026-03-01');
   const rolling = new Date(today);
-  rolling.setDate(rolling.getDate() - 45);
+  rolling.setDate(rolling.getDate() - 14);
   const from = (rolling > earliest ? rolling : earliest).toISOString().slice(0, 10);
   const to = yesterday.toISOString().slice(0, 10);
 
