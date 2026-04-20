@@ -206,11 +206,14 @@ export async function runFBSync() {
     campaignBuckets[cid].history.push(entry);
   }
 
-  const campaigns = Object.values(campaignBuckets).map(c => ({
-    id: c.id,
-    name: c.name,
-    shortLabel: deriveFBShortLabel(c.name),
-  }));
+  // Only list campaigns with at least one ACTIVE ad (excludes paused/historical campaigns)
+  const campaigns = Object.values(campaignBuckets)
+    .filter(c => c.live.some(a => a.status === 'ACTIVE'))
+    .map(c => ({
+      id: c.id,
+      name: c.name,
+      shortLabel: deriveFBShortLabel(c.name),
+    }));
 
   const liveKeys = liveAssets.map(a => a.id);
   const perCampaignWrites = Object.values(campaignBuckets).flatMap(c => [
