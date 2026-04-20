@@ -1,4 +1,4 @@
-import { kvGet } from './utils/kv.js';
+import { kvGet } from './_utils/kv.js';
 
 export default async function handler(req, res) {
   try {

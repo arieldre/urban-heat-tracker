@@ -2,8 +2,8 @@
  * GET /api/snapshot?id=xxx — read a saved snapshot
  * POST /api/snapshot — save current state, returns { id }
  */
-import { kvGet, kvSet } from './utils/kv.js';
-import { CAMPAIGN_IDS, CAMPAIGN_LABELS } from './utils/google.js';
+import { kvGet, kvSet } from './_utils/kv.js';
+import { CAMPAIGN_IDS, CAMPAIGN_LABELS } from './_utils/google.js';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

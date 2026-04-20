@@ -7,8 +7,8 @@
  * POST /api/migrate-history  (protect with ?secret= in prod)
  * Returns { fixed: N, skipped: N, errors: [] }
  */
-import { kvGet, kvSet } from './utils/kv.js';
-import { getAccessToken, gaQuery, CAMPAIGN_IDS } from './utils/google.js';
+import { kvGet, kvSet } from './_utils/kv.js';
+import { getAccessToken, gaQuery, CAMPAIGN_IDS } from './_utils/google.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });

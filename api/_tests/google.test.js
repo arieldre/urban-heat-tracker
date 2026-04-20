@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   CAMPAIGN_IDS, CAMPAIGN_LABELS, VIDEO_TYPES, TEXT_TYPES,
   orientationFromFieldType, detectOrientation,
-} from '../utils/google.js';
+} from '../_utils/google.js';
 
 describe('google utils', () => {
   describe('CAMPAIGN_IDS', () => {

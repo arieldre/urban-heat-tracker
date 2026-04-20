@@ -3,8 +3,8 @@
  * Manual sync trigger — same logic as cron but no auth.
  * Use for initial seeding and on-demand refresh.
  */
-import { runSync } from './utils/sync-logic.js';
-import { hasCredentials } from './utils/google.js';
+import { runSync } from './_utils/sync-logic.js';
+import { hasCredentials } from './_utils/google.js';
 
 export const maxDuration = 60;
 

@@ -3,8 +3,8 @@
  * Returns live assets, history, descriptions, and tags for a campaign.
  * Reads from KV — no Google Ads API calls.
  */
-import { kvGet } from './utils/kv.js';
-import { CAMPAIGN_IDS, CAMPAIGN_LABELS } from './utils/google.js';
+import { kvGet } from './_utils/kv.js';
+import { CAMPAIGN_IDS, CAMPAIGN_LABELS } from './_utils/google.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

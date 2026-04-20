@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock KV
 const kvStore = {};
-vi.mock('../utils/kv.js', () => ({
+vi.mock('../_utils/kv.js', () => ({
   kvGet: vi.fn(async (key) => kvStore[key] || null),
   kvSet: vi.fn(async (key, value) => { kvStore[key] = value; }),
 }));
@@ -16,7 +16,7 @@ const recentDate2 = twoDaysAgo.toISOString().slice(0, 10);
 const staleDate = '2026-03-05'; // clearly stale — weeks ago
 
 // Mock Google API
-vi.mock('../utils/google.js', async (importOriginal) => {
+vi.mock('../_utils/google.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -75,7 +75,7 @@ describe('sync-logic', () => {
   });
 
   it('syncs all 4 campaigns and returns summary', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     const result = await runSync();
 
     expect(result.ok).toBe(true);
@@ -85,7 +85,7 @@ describe('sync-logic', () => {
   });
 
   it('stores live assets in KV with correct structure', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     const live = kvStore['tracker/22784768376/live.json'];
@@ -96,7 +96,7 @@ describe('sync-logic', () => {
   });
 
   it('correctly aggregates metrics across days', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     const live = kvStore['tracker/22784768376/live.json'];
@@ -113,7 +113,7 @@ describe('sync-logic', () => {
   });
 
   it('builds daily breakdown array', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     const live = kvStore['tracker/22784768376/live.json'];
@@ -124,7 +124,7 @@ describe('sync-logic', () => {
   });
 
   it('moves stale assets to history automatically', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     // Stale video should NOT be in live
@@ -141,7 +141,7 @@ describe('sync-logic', () => {
   });
 
   it('sets correct orientation for portrait videos', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     const live = kvStore['tracker/22879160345/live.json'];
@@ -150,7 +150,7 @@ describe('sync-logic', () => {
   });
 
   it('stores text assets as descriptions', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     const descs = kvStore['tracker/22784768376/descriptions.json'];
@@ -163,7 +163,7 @@ describe('sync-logic', () => {
   });
 
   it('stores snapshot for future diffing', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     const snapshot = kvStore['tracker/22784768376/snapshot.json'];
@@ -172,13 +172,13 @@ describe('sync-logic', () => {
   });
 
   it('detects fully removed assets on second sync', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
 
     // First sync seeds data
     await runSync();
 
     // Second sync: campaign 2 video completely gone from API
-    const { gaQuery } = await import('../utils/google.js');
+    const { gaQuery } = await import('../_utils/google.js');
     gaQuery.mockResolvedValueOnce({
       results: [
         {
@@ -205,13 +205,13 @@ describe('sync-logic', () => {
   });
 
   it('api removal: removedAt uses lastSeenAt not sync date', async () => {
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
 
     // First sync: seed campaign 2 video (lastSeenAt = recentDate)
     await runSync();
 
     // Second sync: campaign 2 video gone from API entirely
-    const { gaQuery } = await import('../utils/google.js');
+    const { gaQuery } = await import('../_utils/google.js');
     gaQuery.mockResolvedValueOnce({
       results: [
         {
@@ -238,7 +238,7 @@ describe('sync-logic', () => {
   });
 
   it('sets status=pending for zero-spend assets', async () => {
-    const { gaQuery } = await import('../utils/google.js');
+    const { gaQuery } = await import('../_utils/google.js');
     gaQuery.mockResolvedValueOnce({
       results: [
         {
@@ -251,7 +251,7 @@ describe('sync-logic', () => {
       ],
     });
 
-    const { runSync } = await import('../utils/sync-logic.js');
+    const { runSync } = await import('../_utils/sync-logic.js');
     await runSync();
 
     const live = kvStore['tracker/22784768376/live.json'];

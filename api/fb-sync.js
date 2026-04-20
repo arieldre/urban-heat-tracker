@@ -1,5 +1,5 @@
-import { runFBSync } from './utils/fb-sync-logic.js';
-import { hasCredentials } from './utils/facebook.js';
+import { runFBSync } from './_utils/fb-sync-logic.js';
+import { hasCredentials } from './_utils/facebook.js';
 
 export default async function handler(req, res) {
   if (!hasCredentials()) {

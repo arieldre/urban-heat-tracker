@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock KV
 const kvStore = {};
-vi.mock('../utils/kv.js', () => ({
+vi.mock('../_utils/kv.js', () => ({
   kvGet: vi.fn(async (key) => kvStore[key] || null),
   kvSet: vi.fn(async (key, value) => { kvStore[key] = value; }),
 }));
@@ -12,7 +12,7 @@ const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
 const recentDate = yesterday.toISOString().slice(0, 10);
 const staleDate = '2026-03-05';
 
-vi.mock('../utils/facebook.js', () => ({
+vi.mock('../_utils/facebook.js', () => ({
   hasCredentials: vi.fn(() => true),
   FB_AD_ACCOUNT_ID: 'act_816445786671331',
   fetchAds: vi.fn(async () => [
@@ -74,14 +74,14 @@ describe('fb-sync-logic', () => {
   });
 
   it('runs sync and returns ok summary', async () => {
-    const { runFBSync } = await import('../utils/fb-sync-logic.js');
+    const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     const result = await runFBSync();
     expect(result.ok).toBe(true);
     expect(result.synced).toBe(1);
   });
 
   it('stores live assets in KV', async () => {
-    const { runFBSync } = await import('../utils/fb-sync-logic.js');
+    const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     await runFBSync();
 
     const live = kvStore['tracker/fb/live.json'];
@@ -91,7 +91,7 @@ describe('fb-sync-logic', () => {
   });
 
   it('moves stale ad to history with correct removedAt', async () => {
-    const { runFBSync } = await import('../utils/fb-sync-logic.js');
+    const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     await runFBSync();
 
     const live = kvStore['tracker/fb/live.json'];
@@ -106,7 +106,7 @@ describe('fb-sync-logic', () => {
   });
 
   it('computes purchases + installs correctly', async () => {
-    const { runFBSync } = await import('../utils/fb-sync-logic.js');
+    const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     await runFBSync();
 
     const live = kvStore['tracker/fb/live.json'];
@@ -119,13 +119,13 @@ describe('fb-sync-logic', () => {
   });
 
   it('api removal uses lastSeenAt not today', async () => {
-    const { runFBSync } = await import('../utils/fb-sync-logic.js');
+    const { runFBSync } = await import('../_utils/fb-sync-logic.js');
 
     // First sync: seed ad_001 in live
     await runFBSync();
 
     // Second sync: ad_001 gone from API
-    const { fetchAds, fetchInsights } = await import('../utils/facebook.js');
+    const { fetchAds, fetchInsights } = await import('../_utils/facebook.js');
     fetchAds.mockResolvedValueOnce([]); // no ads returned
     fetchInsights.mockResolvedValueOnce([]);
 
@@ -142,7 +142,7 @@ describe('fb-sync-logic', () => {
   });
 
   it('stores snapshot for future diffing', async () => {
-    const { runFBSync } = await import('../utils/fb-sync-logic.js');
+    const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     await runFBSync();
 
     const snapshot = kvStore['tracker/fb/snapshot.json'];
@@ -151,7 +151,7 @@ describe('fb-sync-logic', () => {
   });
 
   it('sets correct orientation from ad name', async () => {
-    const { runFBSync } = await import('../utils/fb-sync-logic.js');
+    const { runFBSync } = await import('../_utils/fb-sync-logic.js');
     await runFBSync();
 
     const live = kvStore['tracker/fb/live.json'];

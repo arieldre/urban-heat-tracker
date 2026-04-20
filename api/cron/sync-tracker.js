@@ -3,7 +3,7 @@
  * Daily cron — syncs all 4 campaigns from Google Ads.
  * Protected by CRON_SECRET. Schedule: 0 6 * * * (6am UTC daily)
  */
-import { runSync } from '../utils/sync-logic.js';
+import { runSync } from '../_utils/sync-logic.js';
 
 export const maxDuration = 60;
 

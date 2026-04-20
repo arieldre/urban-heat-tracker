@@ -3,8 +3,8 @@
  * Returns live assets for ALL campaigns in one call.
  * Used by cross-campaign comparison and shareable snapshots.
  */
-import { kvGet } from './utils/kv.js';
-import { CAMPAIGN_IDS, CAMPAIGN_LABELS } from './utils/google.js';
+import { kvGet } from './_utils/kv.js';
+import { CAMPAIGN_IDS, CAMPAIGN_LABELS } from './_utils/google.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
