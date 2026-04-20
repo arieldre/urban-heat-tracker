@@ -22,9 +22,11 @@ function TrendArrow({ direction, label }) {
 
 function sortAssets(assets, sortKey, sortDir) {
   return [...assets].sort((a, b) => {
-    // PAUSED always sinks to bottom
-    if (a.status === 'PAUSED' && b.status !== 'PAUSED') return 1;
-    if (b.status === 'PAUSED' && a.status !== 'PAUSED') return -1;
+    // Non-ACTIVE (paused at any level) sinks to bottom
+    const aPaused = a.status !== 'ACTIVE';
+    const bPaused = b.status !== 'ACTIVE';
+    if (aPaused && !bPaused) return 1;
+    if (bPaused && !aPaused) return -1;
     let va = a[sortKey], vb = b[sortKey];
     if (sortKey === '_cpaTrend') { va = a._trend?.recentCpa; vb = b._trend?.recentCpa; }
     if (sortKey === '_velocity') { va = a._velocity?.recentSpend; vb = b._velocity?.recentSpend; }
@@ -132,15 +134,11 @@ export default function FBLiveTable({ assets }) {
               <>
                 <tr
                   key={asset.key}
-                  className={`cursor-pointer ${asset.status === 'PAUSED' ? 'opacity-50' : ''} ${isTop ? 'border-l-3 border-l-[#1877f2] bg-[rgba(24,119,242,0.02)]' : ''}`}
+                  className={`cursor-pointer ${asset.status !== 'ACTIVE' ? 'opacity-40' : ''} ${isTop ? 'border-l-3 border-l-[#1877f2] bg-[rgba(24,119,242,0.02)]' : ''}`}
                   onClick={() => setExpandedId(isExpanded ? null : asset.key)}
                 >
                   {/* Creative */}
                   <td className="flex items-center gap-3">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${asset.status === 'PAUSED' ? 'bg-[var(--color-accent)]' : 'bg-green shadow-[0_0_4px_var(--color-green)]'}`}
-                      title={asset.status}
-                    />
                     {asset.thumbnailUrl && (
                       <img
                         src={asset.thumbnailUrl}

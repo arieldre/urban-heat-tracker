@@ -44,7 +44,7 @@ async function graphAll(url, params = {}) {
 export async function fetchAds() {
   // Fetch ad list + campaign in one call (no nested creative — fetched separately below)
   const all = await graphAll(`${BASE}/${FB_AD_ACCOUNT_ID}/ads`, {
-    fields: 'id,name,status,campaign{id,name},creative{id}',
+    fields: 'id,name,status,effective_status,campaign{id,name,status},creative{id}',
     limit: '100',
   });
   const ads = all.filter(a => a.status !== 'DELETED' && a.status !== 'ARCHIVED');

@@ -105,9 +105,10 @@ export async function runFBSync() {
       id: adId,
       key: adId,
       name: ad.name,
-      status: ad.status,
+      status: ad.effective_status || ad.status,
       campaignId: ad.campaign?.id || null,
       campaignName: ad.campaign?.name || null,
+      campaignStatus: ad.campaign?.status || null,
       creativeId: creative.id || null,
       thumbnailUrl: creative.thumbnail_url || null,
       videoId: creative.video_id || null,
@@ -193,15 +194,20 @@ export async function runFBSync() {
   const newEntries = [...autoHistory, ...apiRemovals].filter(h => !existingHistoryKeys.has(h.key));
   const mergedHistory = [...prevHistory, ...newEntries];
 
-  // Build campaign list from live assets with at least one ACTIVE ad
+  // Build campaign list — only campaigns where campaign itself is ACTIVE
   const campaignMap = {};
   for (const asset of liveAssets) {
     const cid = asset.campaignId || 'unknown';
-    if (!campaignMap[cid]) campaignMap[cid] = { id: cid, name: asset.campaignName || cid, hasActive: false };
-    if (asset.status === 'ACTIVE') campaignMap[cid].hasActive = true;
+    if (!campaignMap[cid]) {
+      campaignMap[cid] = {
+        id: cid,
+        name: asset.campaignName || cid,
+        campaignStatus: asset.campaignStatus,
+      };
+    }
   }
   const campaigns = Object.values(campaignMap)
-    .filter(c => c.hasActive)
+    .filter(c => c.campaignStatus === 'ACTIVE')
     .map(c => ({ id: c.id, name: c.name, shortLabel: deriveFBShortLabel(c.name) }));
 
   const liveKeys = liveAssets.map(a => a.id);
