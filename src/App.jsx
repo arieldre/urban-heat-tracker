@@ -42,6 +42,20 @@ export default function App() {
     }
   }, [network, activeTab]);
 
+  // Silent auto-sync every 30 min so spend stays current throughout the day
+  useEffect(() => {
+    const silentSync = async () => {
+      try {
+        await Promise.all([
+          fetch('/api/sync').then(r => r.ok ? googleRefresh() : null),
+          fetch('/api/fb-sync').then(r => r.ok ? fbRefresh() : null),
+        ]);
+      } catch {}
+    };
+    const id = setInterval(silentSync, 30 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [googleRefresh, fbRefresh]);
+
   // FB campaign list comes from any FB data response (always included)
   const fbCampaigns = fbData?.campaigns || [];
 

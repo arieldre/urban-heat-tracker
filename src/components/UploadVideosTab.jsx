@@ -32,15 +32,15 @@ function VideoThumb({ videoId, name }) {
       href={`https://www.youtube.com/watch?v=${videoId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex items-center gap-3 p-2.5 rounded border border-border hover:border-accent2/40 transition-colors bg-surface2"
+      className="group flex items-start gap-3 p-2.5 rounded border border-border hover:border-accent2/40 transition-colors bg-surface2"
     >
       <img
         src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
         alt=""
-        className="w-[80px] h-[45px] object-cover rounded shrink-0 bg-bg"
+        className="w-[80px] h-[45px] object-cover rounded shrink-0 bg-bg mt-0.5"
       />
       <div className="min-w-0">
-        <div className="font-mono text-[10px] text-text2 truncate group-hover:text-text transition-colors">
+        <div className="font-mono text-[10px] text-text2 break-words group-hover:text-text transition-colors leading-relaxed">
           {name || videoId}
         </div>
         <div className="font-mono text-[9px] text-muted mt-0.5">{videoId}</div>

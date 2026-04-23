@@ -14,15 +14,14 @@ import {
 export async function runSync() {
   const token = await getAccessToken();
 
-  // Date range: max(2026-03-01, today-45d) → yesterday
+  // Date range: max(2026-03-01, today-45d) → today
+  // Include today so intraday spend is visible on each sync.
   const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
   const rolling = new Date(today);
   rolling.setDate(rolling.getDate() - 45);
   const earliest = new Date('2026-03-01');
   const from = (rolling > earliest ? rolling : earliest).toISOString().slice(0, 10);
-  const to = yesterday.toISOString().slice(0, 10);
+  const to = today.toISOString().slice(0, 10);
 
   console.log(`[sync] fetching ${from} → ${to}`);
 
@@ -132,7 +131,7 @@ export async function runSync() {
 
     // Staleness threshold: assets with no data in last 3 days are considered removed
     const STALE_DAYS = 3;
-    const staleDate = new Date(yesterday);
+    const staleDate = new Date(today);
     staleDate.setDate(staleDate.getDate() - STALE_DAYS);
     const staleCutoff = staleDate.toISOString().slice(0, 10);
 
