@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import VideoPreview from './VideoPreview.jsx';
 
 const FIELD_TYPES = {
   YOUTUBE_VIDEO:          'Landscape 16:9',
@@ -49,24 +50,21 @@ function detectOrientationFromName(name) {
 
 function VideoThumb({ videoId, name }) {
   return (
-    <a
-      href={`https://www.youtube.com/watch?v=${videoId}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-start gap-3 p-2.5 rounded border border-border hover:border-accent2/40 transition-colors bg-surface2"
-    >
-      <img
-        src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
-        alt=""
-        className="w-[80px] h-[45px] object-cover rounded shrink-0 bg-bg mt-0.5"
-      />
+    <div className="flex items-start gap-3 p-2.5 rounded border border-border bg-surface2">
+      <VideoPreview youtubeId={videoId}>
+        <img
+          src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
+          alt=""
+          className="w-[80px] h-[45px] object-cover rounded shrink-0 bg-bg mt-0.5"
+        />
+      </VideoPreview>
       <div className="min-w-0">
-        <div className="font-mono text-[11px] text-text break-words group-hover:text-accent2 transition-colors leading-snug">
+        <div className="font-mono text-[11px] text-text break-words leading-snug">
           {name || videoId}
         </div>
         {name && <div className="font-mono text-[9px] text-muted mt-0.5">{videoId}</div>}
       </div>
-    </a>
+    </div>
   );
 }
 
@@ -88,11 +86,13 @@ function CapacityBar({ count, limit }) {
 function ActiveVideoRow({ asset, onRemove, removing }) {
   return (
     <div className="flex items-start gap-2 py-2 border-b border-border/50 last:border-0">
-      <img
-        src={`https://img.youtube.com/vi/${asset.youtubeId}/default.jpg`}
-        alt=""
-        className="w-[56px] h-[32px] object-cover rounded shrink-0 bg-bg mt-0.5"
-      />
+      <VideoPreview youtubeId={asset.youtubeId}>
+        <img
+          src={`https://img.youtube.com/vi/${asset.youtubeId}/default.jpg`}
+          alt=""
+          className="w-[56px] h-[32px] object-cover rounded shrink-0 bg-bg mt-0.5"
+        />
+      </VideoPreview>
       <div className="flex-1 min-w-0">
         <div className="font-mono text-[10px] text-text break-words leading-snug">{asset.name || asset.youtubeId}</div>
         <div className="flex gap-3 mt-1 flex-wrap">

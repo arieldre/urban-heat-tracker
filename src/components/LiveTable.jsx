@@ -154,16 +154,10 @@ export default function LiveTable({ assets, tags }) {
                         {asset.name || asset.youtubeId || asset.id}
                         {isTop && <span className="text-accent text-[9px] ml-1">{'\u2605'}</span>}
                       </div>
-                      {asset.url && (
-                        <a
-                          href={asset.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-[10px] text-accent2 hover:underline"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          {asset.youtubeId ? `youtu.be/${asset.youtubeId}` : 'link'}
-                        </a>
+                      {asset.youtubeId && (
+                        <span className="font-mono text-[10px] text-muted">
+                          {`youtu.be/${asset.youtubeId}`}
+                        </span>
                       )}
                     </div>
                   </td>

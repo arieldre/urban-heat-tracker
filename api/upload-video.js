@@ -144,16 +144,45 @@ async function createYouTubeAsset(token, customerId, videoId, assetName) {
   return data.results[0].resourceName;
 }
 
+// Direct GAQL fetch for all_conversions — bypasses KV so IAA is always current
+async function fetchIaaMetrics(token, campId) {
+  const today = new Date();
+  const from  = new Date(today);
+  from.setDate(from.getDate() - 30);
+  const fromStr = from.toISOString().slice(0, 10);
+  const toStr   = today.toISOString().slice(0, 10);
+
+  const result = await gaQuery(token, `
+    SELECT asset.id, metrics.conversions, metrics.all_conversions
+    FROM ad_group_ad_asset_view
+    WHERE campaign.id = ${campId}
+      AND segments.date BETWEEN '${fromStr}' AND '${toStr}'
+  `);
+  if (result.error) return {};
+
+  const byId = {};
+  for (const r of result.results || []) {
+    const id = r.asset?.id;
+    if (!id) continue;
+    if (!byId[id]) byId[id] = { conversions: 0, allConversions: 0 };
+    byId[id].conversions    += parseFloat(r.metrics?.conversions    || 0);
+    byId[id].allConversions += parseFloat(r.metrics?.allConversions || 0);
+  }
+  return byId;
+}
+
 // Real-time ad video list + KV spend enrichment + asset library for names/thumbnails
 async function getActiveCampaigns(token, customerId, assetLibrary) {
   return Promise.all(IN_CAMPAIGN_IDS.map(async (campId) => {
     const adGroupId = CAMPAIGN_AD_GROUPS[campId];
-    const [{ videos: adVideos }, live] = await Promise.all([
+    const [{ videos: adVideos }, live, gaIaa] = await Promise.all([
       getAdVideos(token, adGroupId),
       kvGet(`tracker/${campId}/live.json`),
+      fetchIaaMetrics(token, campId),
     ]);
 
-    // Sum spend across fieldType variants of the same asset (UAC may report multiple)
+    // Sum spend/conversions from KV (30d window, pre-computed by sync)
+    // IAA comes from direct GA query so it's always current regardless of sync age
     const kvByAssetId = {};
     for (const a of (live?.assets || [])) {
       if (!VIDEO_FIELD_TYPES.has(a.fieldType)) continue;
@@ -161,19 +190,20 @@ async function getActiveCampaigns(token, customerId, assetLibrary) {
         kvByAssetId[a.id] = {
           name: a.name, youtubeId: a.youtubeId, orientation: a.orientation,
           performanceLabel: a.performanceLabel || 'UNSPECIFIED',
-          spend: 0, conversions: 0, iaa: 0,
+          spend: 0, conversions: 0,
         };
       }
       kvByAssetId[a.id].spend       += a.spend || 0;
       kvByAssetId[a.id].conversions += a.conversions || 0;
-      kvByAssetId[a.id].iaa         += a.iaa || 0;
       if (a.performanceLabel && a.performanceLabel !== 'UNSPECIFIED') {
         kvByAssetId[a.id].performanceLabel = a.performanceLabel;
       }
     }
-    for (const kv of Object.values(kvByAssetId)) {
+    for (const [assetId, kv] of Object.entries(kvByAssetId)) {
+      const ga  = gaIaa[assetId] || {};
+      const iaa = (ga.allConversions || 0) - (ga.conversions || 0);
       kv.cpa    = kv.conversions > 0 ? +(kv.spend / kv.conversions).toFixed(4) : null;
-      kv.cpaIaa = kv.iaa > 0         ? +(kv.spend / kv.iaa).toFixed(4)         : null;
+      kv.cpaIaa = iaa > 0            ? +(kv.spend / iaa).toFixed(4)            : null;
       kv.spend  = +kv.spend.toFixed(2);
     }
 
