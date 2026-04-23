@@ -88,6 +88,7 @@ export async function runSync() {
         performanceLabel: 'UNSPECIFIED',
         spend: 0,
         conversions: 0,
+        allConversions: 0,
         impressions: 0,
         clicks: 0,
         daily: {},
@@ -117,6 +118,31 @@ export async function runSync() {
       m.daily[date].impressions += impressions;
       m.daily[date].clicks += clicks;
     }
+  }
+
+  // Separate query for all_conversions — video field types only (text_asset.text incompatible)
+  const allConvRaw = await gaQuery(token, `
+    SELECT campaign.id, asset.id, ad_group_ad_asset_view.field_type,
+           metrics.all_conversions
+    FROM ad_group_ad_asset_view
+    WHERE segments.date BETWEEN '${from}' AND '${to}'
+      AND campaign.id IN (${CAMPAIGN_IDS.join(', ')})
+      AND campaign.status = 'ENABLED'
+      AND ad_group_ad_asset_view.field_type IN (YOUTUBE_VIDEO, PORTRAIT_YOUTUBE_VIDEO, SQUARE_YOUTUBE_VIDEO)
+  `);
+  if (allConvRaw.error) {
+    console.error('[sync] all_conversions query failed:', JSON.stringify(allConvRaw.error));
+  } else {
+    for (const r of allConvRaw.results || []) {
+      const campId = r.campaign?.id;
+      const assetId = r.asset?.id;
+      const fieldType = r.adGroupAdAssetView?.fieldType;
+      if (!campId || !assetId || !fieldType || !byCampaign[campId]) continue;
+      const key = `${assetId}_${fieldType}`;
+      const v = byCampaign[campId].videos[key];
+      if (v) v.allConversions += parseFloat(r.metrics?.allConversions || 0);
+    }
+    console.log(`[sync] all_conversions: ${allConvRaw.results?.length} rows merged`);
   }
 
   // Inject LEARNING videos: assets in APP_AD but not yet in ad_group_ad_asset_view (0 impressions)
@@ -152,7 +178,7 @@ export async function runSync() {
       byCampaign[campId].videos[key] = {
         id: assetId, key, youtubeId: ytId || null, name, fieldType, orientation,
         text: null, performanceLabel: 'LEARNING',
-        spend: 0, conversions: 0, impressions: 0, clicks: 0, daily: {},
+        spend: 0, conversions: 0, allConversions: 0, impressions: 0, clicks: 0, daily: {},
       };
     }
     console.log(`[sync] ${CAMPAIGN_LABELS[campId]}: ${pendingIds.length} LEARNING video(s) injected`);
@@ -191,7 +217,10 @@ export async function runSync() {
       v.orientation = detectOrientation(v.name, v.fieldType);
       v.spend = +v.spend.toFixed(2);
       v.conversions = +v.conversions.toFixed(2);
-      v.cpa = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(4) : null;
+      v.allConversions = +v.allConversions.toFixed(2);
+      v.iaa = +(v.allConversions - v.conversions).toFixed(2);
+      v.cpa    = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(4) : null;
+      v.cpaIaa = v.iaa > 0         ? +(v.spend / v.iaa).toFixed(4)         : null;
       v.ctr = v.impressions > 0 ? +((v.clicks / v.impressions) * 100).toFixed(3) : null;
       v.url = v.youtubeId ? `https://www.youtube.com/watch?v=${v.youtubeId}` : null;
 
