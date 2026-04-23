@@ -157,7 +157,12 @@ export default function App() {
           <HistoryTable entries={history} tags={tags} />
         )}
         {network === 'google' && data && activeTab === 'descriptions' && (
-          <DescriptionsTable assets={descriptions} historyAssets={descriptionsHistory} />
+          <DescriptionsTable
+            assets={descriptions}
+            historyAssets={descriptionsHistory}
+            campaignId={campaignId}
+            onMutated={googleRefresh}
+          />
         )}
         {network === 'google' && activeTab === 'compare' && (
           <CrossCampaignTab />
