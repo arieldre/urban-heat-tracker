@@ -237,7 +237,7 @@ describe('sync-logic', () => {
     expect(removed.removedAt).not.toBe(today);
   });
 
-  it('sets status=pending for zero-spend assets', async () => {
+  it('moves UNSPECIFIED performance label assets to history', async () => {
     const { gaQuery } = await import('../_utils/google.js');
     gaQuery.mockResolvedValueOnce({
       results: [
@@ -255,8 +255,10 @@ describe('sync-logic', () => {
     await runSync();
 
     const live = kvStore['tracker/22784768376/live.json'];
-    const pending = live.assets.find(a => a.youtubeId === 'new123');
-    expect(pending.status).toBe('pending');
-    expect(pending.cpa).toBeNull();
+    const history = kvStore['tracker/22784768376/history.json'];
+    expect(live.assets.find(a => a.youtubeId === 'new123')).toBeUndefined();
+    const histEntry = history.find(a => a.youtubeId === 'new123');
+    expect(histEntry).toBeDefined();
+    expect(histEntry.reason).toBe('Performance label unspecified');
   });
 });

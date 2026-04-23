@@ -165,8 +165,8 @@ export async function runSync() {
       v.firstSeenAt = dailyEntries[0]?.[0] || to;
       v.lastSeenAt = dailyEntries[dailyEntries.length - 1]?.[0] || to;
 
-      // Classify: if last active date is before staleness cutoff → history
-      if (v.lastSeenAt < staleCutoff) {
+      // Classify: stale (no data in 3 days) OR UNSPECIFIED performance label → history
+      if (v.lastSeenAt < staleCutoff || v.performanceLabel === 'UNSPECIFIED') {
         autoHistory.push({
           id: v.id,
           key: v.key,
@@ -179,7 +179,7 @@ export async function runSync() {
           lastSpend: v.spend,
           lastConversions: v.conversions,
           lastPerformanceLabel: v.performanceLabel,
-          reason: `No data since ${v.lastSeenAt}`,
+          reason: v.performanceLabel === 'UNSPECIFIED' ? 'Performance label unspecified' : `No data since ${v.lastSeenAt}`,
           firstSeenAt: v.firstSeenAt,
         });
       } else {
