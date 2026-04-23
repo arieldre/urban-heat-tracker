@@ -31,7 +31,7 @@ export async function runSync() {
 
   console.log(`[sync] fetching ${from} → ${to}`);
 
-  // Single GAQL query for all 4 campaigns
+  // Main query — text+video assets. all_conversions excluded: incompatible with text_asset.text
   const raw = await gaQuery(token, `
     SELECT
       campaign.id, campaign.name,
@@ -42,8 +42,7 @@ export async function runSync() {
       ad_group_ad_asset_view.field_type,
       ad_group_ad_asset_view.enabled,
       segments.date,
-      metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions,
-      metrics.all_conversions
+      metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
     FROM ad_group_ad_asset_view
     WHERE segments.date BETWEEN '${from}' AND '${to}'
       AND campaign.id IN (${CAMPAIGN_IDS.join(', ')})
@@ -84,7 +83,7 @@ export async function runSync() {
         youtubeId: asset.youtubeVideoAsset?.youtubeVideoId || null,
         name: asset.name || '',
         fieldType,
-        orientation: null, // set after name is finalized
+        orientation: null,
         text: asset.textAsset?.text || null,
         performanceLabel: 'UNSPECIFIED',
         spend: 0,
@@ -105,13 +104,11 @@ export async function runSync() {
     const clicks = parseInt(r.metrics?.clicks || 0);
     const spend = (r.metrics?.costMicros || 0) / 1e6;
     const conversions = parseFloat(r.metrics?.conversions || 0);
-    const allConversions = parseFloat(r.metrics?.allConversions || 0);
 
     m.impressions += impressions;
     m.clicks += clicks;
     m.spend += spend;
     m.conversions += conversions;
-    m.allConversions += allConversions;
 
     const date = r.segments?.date;
     if (date) {
@@ -121,6 +118,31 @@ export async function runSync() {
       m.daily[date].impressions += impressions;
       m.daily[date].clicks += clicks;
     }
+  }
+
+  // Separate query for all_conversions — video field types only to avoid text_asset conflict
+  const allConvRaw = await gaQuery(token, `
+    SELECT campaign.id, asset.id, ad_group_ad_asset_view.field_type,
+           segments.date, metrics.all_conversions
+    FROM ad_group_ad_asset_view
+    WHERE segments.date BETWEEN '${from}' AND '${to}'
+      AND campaign.id IN (${CAMPAIGN_IDS.join(', ')})
+      AND campaign.status = 'ENABLED'
+      AND ad_group_ad_asset_view.field_type IN (YOUTUBE_VIDEO, PORTRAIT_YOUTUBE_VIDEO, SQUARE_YOUTUBE_VIDEO)
+  `);
+  if (allConvRaw.error) {
+    console.error('[sync] all_conversions query failed:', JSON.stringify(allConvRaw.error));
+  } else {
+    for (const r of allConvRaw.results || []) {
+      const campId = r.campaign?.id;
+      const assetId = r.asset?.id;
+      const fieldType = r.adGroupAdAssetView?.fieldType;
+      if (!campId || !assetId || !fieldType || !byCampaign[campId]) continue;
+      const key = `${assetId}_${fieldType}`;
+      const v = byCampaign[campId].videos[key];
+      if (v) v.allConversions += parseFloat(r.metrics?.allConversions || 0);
+    }
+    console.log(`[sync] all_conversions: ${allConvRaw.results?.length} rows merged`);
   }
 
   // Inject LEARNING videos: assets in APP_AD but not yet in ad_group_ad_asset_view (0 impressions)

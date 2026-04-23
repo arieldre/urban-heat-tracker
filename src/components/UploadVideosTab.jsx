@@ -100,7 +100,7 @@ function ActiveVideoRow({ asset, onRemove, removing }) {
             Cost: <strong className="text-text">${asset.spend?.toFixed(2) ?? '—'}</strong>
           </span>
           <span className="font-mono text-[9px] text-text2">
-            CPA inst: <strong className="text-text">{asset.cpa != null ? `$${asset.cpa.toFixed(2)}` : '—'}</strong>
+            CPI: <strong className="text-text">{asset.cpa != null ? `$${asset.cpa.toFixed(2)}` : '—'}</strong>
           </span>
           <span className="font-mono text-[9px] text-text2">
             CPA IAA: <strong className="text-text">{asset.cpaIaa != null ? `$${asset.cpaIaa.toFixed(2)}` : '—'}</strong>

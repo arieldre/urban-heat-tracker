@@ -88,7 +88,7 @@ export default function LiveTable({ assets, tags }) {
   const columns = [
     { key: 'name', label: 'Creative' },
     { key: 'orientation', label: 'Format' },
-    { key: 'cpa', label: 'CPA (inst)' },
+    { key: 'cpa', label: 'CPI' },
     { key: 'cpaIaa', label: 'CPA (IAA)' },
     { key: '_cpaTrend', label: '7d Trend' },
     { key: 'spend', label: 'Spend' },
@@ -165,7 +165,7 @@ export default function LiveTable({ assets, tags }) {
                   {/* Format */}
                   <td><Badge label={asset.orientation} /></td>
 
-                  {/* CPA (installs) */}
+                  {/* CPI */}
                   <td className={`font-mono text-[11px] ${cpaClass(asset.cpa)}`}>
                     {asset.cpa !== null ? `$${asset.cpa.toFixed(4)}` : '\u2013'}
                   </td>
