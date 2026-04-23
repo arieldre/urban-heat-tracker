@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const FIELD_TYPES = {
   YOUTUBE_VIDEO:          'Landscape 16:9',
@@ -33,6 +33,18 @@ function parseYouTubeId(input) {
     }
   } catch {}
   return null;
+}
+
+// Parses WxH from asset name to determine fieldType
+function detectOrientationFromName(name) {
+  if (!name) return null;
+  const m = name.match(/(\d{3,4})x(\d{3,4})/);
+  if (!m) return null;
+  const w = parseInt(m[1]);
+  const h = parseInt(m[2]);
+  if (w === h) return 'SQUARE_YOUTUBE_VIDEO';
+  if (h > w) return 'PORTRAIT_YOUTUBE_VIDEO';
+  return 'YOUTUBE_VIDEO';
 }
 
 function VideoThumb({ videoId, name }) {
@@ -129,6 +141,26 @@ export default function UploadVideosTab() {
 
   const selectedCamp = activeCampaigns.find(c => c.campaignId === campaignId);
 
+  // Split videoAssets into in-campaign and available for the selected campaign
+  const liveAssetRNs = useMemo(
+    () => new Set((selectedCamp?.assets || []).map(a => a.assetRN)),
+    [selectedCamp]
+  );
+  const liveVideos      = useMemo(() => videoAssets.filter(a =>  liveAssetRNs.has(a.resourceName)), [videoAssets, liveAssetRNs]);
+  const availableVideos = useMemo(() => videoAssets.filter(a => !liveAssetRNs.has(a.resourceName)), [videoAssets, liveAssetRNs]);
+
+  // When campaign changes, if selected asset is now live → reset to first available
+  useEffect(() => {
+    if (selectedAssetRN && liveAssetRNs.has(selectedAssetRN)) {
+      const first = availableVideos[0];
+      setSelectedAssetRN(first?.resourceName || '');
+      if (first) {
+        const detected = detectOrientationFromName(first.name);
+        if (detected) setFieldType(detected);
+      }
+    }
+  }, [campaignId, liveAssetRNs]);
+
   const loadData = (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
@@ -137,15 +169,33 @@ export default function UploadVideosTab() {
       .then(r => r.json())
       .then(d => {
         if (d.error) { setLoadError(d.error); return; }
-        setVideoAssets(d.videoAssets || []);
-        setActiveCampaigns(d.activeCampaigns || []);
-        if (d.videoAssets?.length) setSelectedAssetRN(d.videoAssets[0].resourceName);
+        const assets = d.videoAssets || [];
+        const campaigns = d.activeCampaigns || [];
+        setVideoAssets(assets);
+        setActiveCampaigns(campaigns);
+        // Default selection: first available (not live in current campaign)
+        const campLiveRNs = new Set(
+          (campaigns.find(c => c.campaignId === campaignId)?.assets || []).map(a => a.assetRN)
+        );
+        const firstAvail = assets.find(a => !campLiveRNs.has(a.resourceName));
+        if (firstAvail) {
+          setSelectedAssetRN(firstAvail.resourceName);
+          const detected = detectOrientationFromName(firstAvail.name);
+          if (detected) setFieldType(detected);
+        }
       })
       .catch(e => setLoadError('Network error: ' + e.message))
       .finally(() => { setLoading(false); setRefreshing(false); });
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const selectAsset = (a) => {
+    setSelectedAssetRN(a.resourceName);
+    setMode('existing');
+    const detected = detectOrientationFromName(a.name);
+    if (detected) setFieldType(detected);
+  };
 
   const handleRemove = async (asset) => {
     setRemovingId(asset.id);
@@ -200,7 +250,7 @@ export default function UploadVideosTab() {
 
   const resetForm = () => { setResult(null); setError(null); setYoutubeUrl(''); setAssetName(''); };
   const videoId = mode === 'new' ? parseYouTubeId(youtubeUrl) : null;
-  const selectedAsset = videoAssets.find(a => a.resourceName === selectedAssetRN);
+  const selectedAsset = availableVideos.find(a => a.resourceName === selectedAssetRN);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -228,21 +278,47 @@ export default function UploadVideosTab() {
             {refreshing ? '…' : '↻'}
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+        <div className="flex-1 overflow-y-auto p-2">
+
+          {/* In Campaign — view only */}
+          {liveVideos.length > 0 && (
+            <div className="mb-2">
+              <div className="font-mono text-[8px] text-accent uppercase tracking-wider px-1 pt-1 pb-1.5">
+                In Campaign ({liveVideos.length})
+              </div>
+              <div className="space-y-1.5 opacity-50">
+                {liveVideos.map(a => (
+                  <VideoThumb key={a.resourceName} videoId={a.videoId} name={a.name} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Available — selectable for upload */}
+          {availableVideos.length > 0 && (
+            <div>
+              <div className="font-mono text-[8px] text-muted uppercase tracking-wider px-1 pt-1 pb-1.5">
+                Available ({availableVideos.length})
+              </div>
+              <div className="space-y-1.5">
+                {availableVideos.map(a => (
+                  <div key={a.resourceName}
+                    onClick={() => selectAsset(a)}
+                    className={`cursor-pointer rounded border transition-colors ${
+                      selectedAssetRN === a.resourceName && mode === 'existing'
+                        ? 'border-accent2/60' : 'border-transparent hover:border-border'
+                    }`}
+                  >
+                    <VideoThumb videoId={a.videoId} name={a.name} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {videoAssets.length === 0 && (
             <div className="font-mono text-[10px] text-muted pt-4 text-center">No video assets.</div>
           )}
-          {videoAssets.map(a => (
-            <div key={a.resourceName}
-              onClick={() => { setSelectedAssetRN(a.resourceName); setMode('existing'); }}
-              className={`cursor-pointer rounded border transition-colors ${
-                selectedAssetRN === a.resourceName && mode === 'existing'
-                  ? 'border-accent2/60' : 'border-transparent hover:border-border'
-              }`}
-            >
-              <VideoThumb videoId={a.videoId} name={a.name} />
-            </div>
-          ))}
         </div>
       </div>
 
@@ -353,15 +429,32 @@ export default function UploadVideosTab() {
 
               {mode === 'existing' && (
                 <div>
-                  <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-1">Selected Asset</label>
-                  <select value={selectedAssetRN} onChange={e => setSelectedAssetRN(e.target.value)} required
-                    className="w-full bg-surface2 border border-border text-text font-mono text-[11px] rounded px-3 py-2 cursor-pointer"
-                  >
-                    {videoAssets.map(a => (
-                      <option key={a.resourceName} value={a.resourceName}>{a.name || a.videoId}</option>
-                    ))}
-                  </select>
-                  {selectedAsset && <div className="mt-2"><VideoThumb videoId={selectedAsset.videoId} name={selectedAsset.name} /></div>}
+                  <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-1">
+                    Selected Asset <span className="text-muted normal-case">({availableVideos.length} available)</span>
+                  </label>
+                  {availableVideos.length === 0 ? (
+                    <div className="font-mono text-[10px] text-muted">All account videos are already in this campaign.</div>
+                  ) : (
+                    <>
+                      <select value={selectedAssetRN}
+                        onChange={e => {
+                          setSelectedAssetRN(e.target.value);
+                          const a = availableVideos.find(v => v.resourceName === e.target.value);
+                          if (a) {
+                            const detected = detectOrientationFromName(a.name);
+                            if (detected) setFieldType(detected);
+                          }
+                        }}
+                        required
+                        className="w-full bg-surface2 border border-border text-text font-mono text-[11px] rounded px-3 py-2 cursor-pointer"
+                      >
+                        {availableVideos.map(a => (
+                          <option key={a.resourceName} value={a.resourceName}>{a.name || a.videoId}</option>
+                        ))}
+                      </select>
+                      {selectedAsset && <div className="mt-2"><VideoThumb videoId={selectedAsset.videoId} name={selectedAsset.name} /></div>}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -389,7 +482,12 @@ export default function UploadVideosTab() {
 
               {/* Orientation */}
               <div>
-                <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-2">Orientation</label>
+                <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-2">
+                  Orientation
+                  {mode === 'existing' && selectedAsset && detectOrientationFromName(selectedAsset.name) && (
+                    <span className="ml-2 normal-case text-accent2">auto-detected</span>
+                  )}
+                </label>
                 <div className="flex gap-2">
                   {Object.entries(FIELD_TYPES).map(([val, label]) => (
                     <button key={val} type="button" onClick={() => setFieldType(val)}
@@ -414,7 +512,7 @@ export default function UploadVideosTab() {
               )}
 
               <button type="submit"
-                disabled={submitting || selectedCamp?.atLimit || (mode === 'new' && !videoId)}
+                disabled={submitting || selectedCamp?.atLimit || (mode === 'new' && !videoId) || (mode === 'existing' && availableVideos.length === 0)}
                 className="w-full py-2.5 font-mono text-[11px] font-semibold bg-accent text-bg rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent/90 transition-colors"
               >
                 {submitting ? 'Uploading…' : selectedCamp?.atLimit ? 'Campaign at limit — remove a video first' : 'Upload to Google Ads — IN Only'}
