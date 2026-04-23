@@ -120,7 +120,8 @@ export async function runSync() {
     }
   }
 
-  // Separate query for all_conversions — video field types only (text_asset.text incompatible)
+  // Separate query for all_conversions — no text_asset fields to avoid GAQL incompatibility.
+  // No field_type filter: text asset rows won't match any video key and are ignored in merge.
   const allConvRaw = await gaQuery(token, `
     SELECT campaign.id, asset.id, ad_group_ad_asset_view.field_type,
            metrics.all_conversions
@@ -128,7 +129,6 @@ export async function runSync() {
     WHERE segments.date BETWEEN '${from}' AND '${to}'
       AND campaign.id IN (${CAMPAIGN_IDS.join(', ')})
       AND campaign.status = 'ENABLED'
-      AND ad_group_ad_asset_view.field_type IN (YOUTUBE_VIDEO, PORTRAIT_YOUTUBE_VIDEO, SQUARE_YOUTUBE_VIDEO)
   `);
   if (allConvRaw.error) {
     console.error('[sync] all_conversions query failed:', JSON.stringify(allConvRaw.error));
