@@ -92,7 +92,7 @@ function ActiveVideoRow({ asset, onRemove, removing }) {
           <span className={`font-mono text-[9px] font-semibold ${PERF_COLORS[asset.performanceLabel] || 'text-muted'}`}>
             {asset.performanceLabel || 'UNSPECIFIED'}
           </span>
-          <span className="font-mono text-[9px] text-muted">{FIELD_TYPES[asset.fieldType] || asset.fieldType}</span>
+          <span className="font-mono text-[9px] text-muted">{asset.orientation || FIELD_TYPES[asset.fieldType] || asset.fieldType}</span>
         </div>
       </div>
       <button

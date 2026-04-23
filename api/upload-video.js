@@ -107,6 +107,7 @@ async function getActiveCampaigns() {
         name:             a.name,
         youtubeId:        a.youtubeId,
         fieldType:        a.fieldType,
+        orientation:      a.orientation,   // computed from asset name, more accurate than fieldType
         spend:            a.spend,
         cpa:              a.cpa,
         performanceLabel: a.performanceLabel,
