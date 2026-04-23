@@ -83,7 +83,8 @@ async function getExistingVideoAssets(token) {
       resourceName: r.asset.resourceName,
       videoId:      r.asset.youtubeVideoAsset?.youtubeVideoId,
     }))
-    .filter(a => a.videoId);
+    .filter(a => a.videoId)
+    .sort((a, b) => parseInt(b.id) - parseInt(a.id));
 }
 
 // Read live video data for IN campaigns from KV (populated by sync)
@@ -152,18 +153,42 @@ async function linkViaCampaign(token, customerId, assetRN, campaignRN, fieldType
   return data.results?.[0]?.resourceName;
 }
 
-async function removeFromCampaign(token, customerId, campaignId, assetId, fieldType) {
-  // CampaignAsset resource name format: customers/{id}/campaignAssets/{campId}~{assetId}~{fieldType}
-  const resourceName = `customers/${customerId}/campaignAssets/${campaignId}~${assetId}~${fieldType}`;
+async function removeAsset(token, customerId, campaignId, assetId, fieldType) {
+  const assetRN = `customers/${customerId}/assets/${assetId}`;
+
+  // PMax campaigns link via assetGroupAssets — query to find the link first
+  const found = await gaQuery(token, `
+    SELECT asset_group_asset.resource_name
+    FROM asset_group_asset
+    WHERE asset_group_asset.asset = '${assetRN}'
+      AND asset_group.campaign.id = ${campaignId}
+      AND asset_group_asset.field_type = ${fieldType}
+  `);
+
+  if (found.results?.length > 0) {
+    const agaRN = found.results[0].assetGroupAsset.resourceName;
+    const r = await fetch(
+      `https://googleads.googleapis.com/v23/customers/${customerId}/assetGroupAssets:mutate`,
+      { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
+        operations: [{ remove: agaRN }],
+      }) }
+    );
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    return agaRN;
+  }
+
+  // Fallback: UAC / campaign-level asset link
+  const campaignAssetRN = `customers/${customerId}/campaignAssets/${campaignId}~${assetId}~${fieldType}`;
   const r = await fetch(
     `https://googleads.googleapis.com/v23/customers/${customerId}/campaignAssets:mutate`,
     { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
-      operations: [{ remove: resourceName }],
+      operations: [{ remove: campaignAssetRN }],
     }) }
   );
   const data = await r.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return resourceName;
+  return campaignAssetRN;
 }
 
 export default async function handler(req, res) {
@@ -202,7 +227,7 @@ export default async function handler(req, res) {
     if (action === 'remove') {
       if (!assetId || !fieldType) return res.status(400).json({ error: 'assetId and fieldType required for remove' });
       try {
-        const removed = await removeFromCampaign(token, customerId, campaignId, assetId, fieldType);
+        const removed = await removeAsset(token, customerId, campaignId, assetId, fieldType);
         console.log(`[upload-video] Removed ${removed}`);
         return res.status(200).json({ ok: true, removed });
       } catch (e) {
@@ -249,7 +274,7 @@ export default async function handler(req, res) {
         campaignId, campaignLabel: CAMPAIGN_LABELS[campaignId], fieldType,
       });
     } catch (e) {
-      console.error('[upload-video POST]', e.message);
+      console.error('[upload-video POST]', e.message, e.stack);
       return res.status(500).json({ error: e.message });
     }
   }

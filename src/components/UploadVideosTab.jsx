@@ -48,10 +48,10 @@ function VideoThumb({ videoId, name }) {
         className="w-[80px] h-[45px] object-cover rounded shrink-0 bg-bg mt-0.5"
       />
       <div className="min-w-0">
-        <div className="font-mono text-[10px] text-text2 break-words group-hover:text-text transition-colors leading-relaxed">
+        <div className="font-mono text-[11px] text-text break-words group-hover:text-accent2 transition-colors leading-snug">
           {name || videoId}
         </div>
-        <div className="font-mono text-[9px] text-muted mt-0.5">{videoId}</div>
+        {name && <div className="font-mono text-[9px] text-muted mt-0.5">{videoId}</div>}
       </div>
     </a>
   );
@@ -130,6 +130,13 @@ export default function UploadVideosTab() {
 
   const hasAssetGroups = assetGroups.some(g => g.writable);
   const selectedCamp = activeCampaigns.find(c => c.campaignId === campaignId);
+
+  // Keep asset group selector in sync with selected campaign
+  useEffect(() => {
+    if (!hasAssetGroups) return;
+    const match = assetGroups.find(g => g.writable && g.campaignId === campaignId);
+    if (match) setAssetGroupRN(match.resourceName);
+  }, [campaignId, assetGroups, hasAssetGroups]);
 
   const loadData = (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
