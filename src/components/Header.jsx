@@ -14,6 +14,7 @@ export default function Header({
     { id: 'history', label: 'History' },
     { id: 'descriptions', label: 'Descriptions' },
     { id: 'compare', label: 'Compare' },
+    { id: 'upload', label: 'Upload Videos' },
   ];
 
   const fbTabs = [

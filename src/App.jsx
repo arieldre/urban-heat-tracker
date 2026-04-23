@@ -6,6 +6,7 @@ import HistoryTable from './components/HistoryTable.jsx';
 import DescriptionsTable from './components/DescriptionsTable.jsx';
 import CrossCampaignTab from './components/CrossCampaignTab.jsx';
 import HeadToHead from './components/HeadToHead.jsx';
+import UploadVideosTab from './components/UploadVideosTab.jsx';
 import FBLiveTable from './components/FBLiveTable.jsx';
 import FBHistoryTable from './components/FBHistoryTable.jsx';
 import { useTrackerData } from './hooks/useTrackerData.js';
@@ -146,6 +147,9 @@ export default function App() {
         )}
         {network === 'google' && activeTab === 'compare' && (
           <CrossCampaignTab />
+        )}
+        {network === 'google' && activeTab === 'upload' && (
+          <UploadVideosTab />
         )}
 
         {/* Facebook views */}
