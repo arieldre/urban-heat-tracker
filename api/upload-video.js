@@ -118,8 +118,9 @@ async function addVideoToAd(token, customerId, adGroupId, assetRN) {
 
 async function removeVideoFromAd(token, customerId, adGroupId, assetRN) {
   const { adRN, videos } = await getAdVideos(token, adGroupId);
-  console.log('[remove] adGroupId:', adGroupId, 'looking for:', assetRN, 'videos count:', videos.length, 'video[0]:', JSON.stringify(videos[0]));
-  if (!videos.some(v => v.asset === assetRN)) throw new Error('Video not found in this campaign ad');
+  if (!videos.some(v => v.asset === assetRN)) {
+    throw new Error(`Video not found. looking=${assetRN} count=${videos.length} sample=${JSON.stringify(videos[0])}`);
+  }
   const newList = videos.filter(v => v.asset !== assetRN);
   const r = await fetch(
     `https://googleads.googleapis.com/v23/customers/${customerId}/ads:mutate`,
