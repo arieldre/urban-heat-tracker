@@ -118,9 +118,7 @@ async function addVideoToAd(token, customerId, adGroupId, assetRN) {
 
 async function removeVideoFromAd(token, customerId, adGroupId, assetRN) {
   const { adRN, videos } = await getAdVideos(token, adGroupId);
-  if (!videos.some(v => v.asset === assetRN)) {
-    throw new Error(`Video not found. looking=${assetRN} count=${videos.length} sample=${JSON.stringify(videos[0])}`);
-  }
+  if (!videos.some(v => v.asset === assetRN)) throw new Error('Video not found in this campaign ad');
   const newList = videos.filter(v => v.asset !== assetRN);
   const r = await fetch(
     `https://googleads.googleapis.com/v23/customers/${customerId}/ads:mutate`,
@@ -207,8 +205,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Strip dashes — Google Ads API resource names always use numeric format (9698502211 not 969-850-2211)
-  const customerId = (process.env.GOOGLE_CUSTOMER_ID || '').replace(/-/g, '');
+  // Strip dashes + whitespace — resource names must be numeric only (env var may have trailing \n from echo)
+  const customerId = (process.env.GOOGLE_CUSTOMER_ID || '').replace(/[\s-]/g, '');
   let token;
   try { token = await getAccessToken(); }
   catch (e) { return res.status(500).json({ error: 'Google auth failed: ' + e.message }); }
