@@ -110,33 +110,23 @@ export default function UploadVideosTab() {
   const [loading, setLoading]       = useState(true);
   const [loadError, setLoadError]   = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [assetGroups, setAssetGroups]     = useState([]);
-  const [videoAssets, setVideoAssets]     = useState([]);
+  const [videoAssets, setVideoAssets]         = useState([]);
   const [activeCampaigns, setActiveCampaigns] = useState([]);
 
   // Form
   const [mode, setMode]             = useState('new');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [selectedAssetRN, setSelectedAssetRN] = useState('');
-  const [assetGroupRN, setAssetGroupRN]       = useState('');
   const [campaignId, setCampaignId]           = useState(IN_CAMPAIGNS[0].id);
   const [fieldType, setFieldType]             = useState('YOUTUBE_VIDEO');
   const [assetName, setAssetName]             = useState('');
 
   const [submitting, setSubmitting]   = useState(false);
-  const [removingKey, setRemovingKey] = useState(null);
+  const [removingId, setRemovingId]   = useState(null);
   const [result, setResult]           = useState(null);
   const [error, setError]             = useState(null);
 
-  const hasAssetGroups = assetGroups.some(g => g.writable);
   const selectedCamp = activeCampaigns.find(c => c.campaignId === campaignId);
-
-  // Keep asset group selector in sync with selected campaign
-  useEffect(() => {
-    if (!hasAssetGroups) return;
-    const match = assetGroups.find(g => g.writable && g.campaignId === campaignId);
-    if (match) setAssetGroupRN(match.resourceName);
-  }, [campaignId, assetGroups, hasAssetGroups]);
 
   const loadData = (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -146,11 +136,8 @@ export default function UploadVideosTab() {
       .then(r => r.json())
       .then(d => {
         if (d.error) { setLoadError(d.error); return; }
-        setAssetGroups(d.assetGroups || []);
         setVideoAssets(d.videoAssets || []);
         setActiveCampaigns(d.activeCampaigns || []);
-        const firstWritable = (d.assetGroups || []).find(g => g.writable);
-        if (firstWritable) setAssetGroupRN(firstWritable.resourceName);
         if (d.videoAssets?.length) setSelectedAssetRN(d.videoAssets[0].resourceName);
       })
       .catch(e => setLoadError('Network error: ' + e.message))
@@ -160,13 +147,13 @@ export default function UploadVideosTab() {
   useEffect(() => { loadData(); }, []);
 
   const handleRemove = async (asset) => {
-    setRemovingKey(asset.key);
+    setRemovingId(asset.id);
     setError(null);
     try {
       const r = await fetch('/api/upload-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'remove', campaignId, assetId: asset.id, fieldType: asset.fieldType }),
+        body: JSON.stringify({ action: 'remove', campaignId, assetId: asset.id }),
       });
       const data = await r.json();
       if (!r.ok || data.error) setError(data.error || `HTTP ${r.status}`);
@@ -174,7 +161,7 @@ export default function UploadVideosTab() {
     } catch (e) {
       setError(e.message);
     } finally {
-      setRemovingKey(null);
+      setRemovingId(null);
     }
   };
 
@@ -192,7 +179,6 @@ export default function UploadVideosTab() {
         ? { existingAssetResourceName: selectedAssetRN }
         : { youtubeUrl, name: assetName }
       ),
-      ...(hasAssetGroups ? { assetGroupResourceName: assetGroupRN } : {}),
     };
 
     try {
@@ -305,10 +291,10 @@ export default function UploadVideosTab() {
                   <div className="bg-surface2 border border-border rounded px-3 py-1">
                     {selectedCamp.assets.map(asset => (
                       <ActiveVideoRow
-                        key={asset.key}
+                        key={asset.id}
                         asset={asset}
                         onRemove={handleRemove}
-                        removing={removingKey === asset.key}
+                        removing={removingId === asset.id}
                       />
                     ))}
                   </div>
@@ -378,57 +364,27 @@ export default function UploadVideosTab() {
                 </div>
               )}
 
-              {/* Target — asset group or campaign */}
-              {hasAssetGroups ? (
-                <div>
-                  <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-1">
-                    Asset Group <span className="text-muted normal-case">(IN only)</span>
-                  </label>
-                  <select value={assetGroupRN} onChange={e => setAssetGroupRN(e.target.value)} required
-                    className="w-full bg-surface2 border border-border text-text font-mono text-[11px] rounded px-3 py-2 cursor-pointer"
-                  >
-                    {assetGroups.filter(g => g.writable).length > 0 && (
-                      <optgroup label="── IN Campaigns (writable) ──">
-                        {assetGroups.filter(g => g.writable).map(g => (
-                          <option key={g.resourceName} value={g.resourceName}>
-                            {g.campaignLabel} — {g.name} ({g.status})
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {assetGroups.filter(g => !g.writable).length > 0 && (
-                      <optgroup label="── US Campaigns (read-only) ──">
-                        {assetGroups.filter(g => !g.writable).map(g => (
-                          <option key={g.resourceName} value={g.resourceName} disabled>
-                            {g.campaignLabel} — {g.name} ({g.status})
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
+              {/* Campaign selector */}
+              <div>
+                <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-1">
+                  Campaign <span className="text-muted normal-case">(IN only)</span>
+                </label>
+                <div className="flex gap-2">
+                  {IN_CAMPAIGNS.map(c => {
+                    const camp = activeCampaigns.find(ac => ac.campaignId === c.id);
+                    return (
+                      <button key={c.id} type="button" onClick={() => setCampaignId(c.id)}
+                        className={`flex-1 py-2 font-mono text-[10px] rounded border cursor-pointer transition-colors ${
+                          campaignId === c.id ? 'border-accent text-accent bg-surface2' : 'border-border text-text2 bg-surface2 hover:border-muted'
+                        } ${camp?.atLimit ? 'border-red/40 text-red' : ''}`}
+                      >
+                        {c.label}
+                        {camp && <span className="ml-1 text-muted">({camp.count}/{camp.limit})</span>}
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : (
-                <div>
-                  <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-1">
-                    Campaign <span className="text-muted normal-case">(IN only)</span>
-                  </label>
-                  <div className="flex gap-2">
-                    {IN_CAMPAIGNS.map(c => {
-                      const camp = activeCampaigns.find(ac => ac.campaignId === c.id);
-                      return (
-                        <button key={c.id} type="button" onClick={() => setCampaignId(c.id)}
-                          className={`flex-1 py-2 font-mono text-[10px] rounded border cursor-pointer transition-colors ${
-                            campaignId === c.id ? 'border-accent text-accent bg-surface2' : 'border-border text-text2 bg-surface2 hover:border-muted'
-                          } ${camp?.atLimit ? 'border-red/40 text-red' : ''}`}
-                        >
-                          {c.label}
-                          {camp && <span className="ml-1 text-muted">({camp.count}/{camp.limit})</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              </div>
 
               {/* Orientation */}
               <div>
@@ -457,7 +413,7 @@ export default function UploadVideosTab() {
               )}
 
               <button type="submit"
-                disabled={submitting || selectedCamp?.atLimit || (mode === 'new' && !videoId) || (hasAssetGroups && !assetGroupRN)}
+                disabled={submitting || selectedCamp?.atLimit || (mode === 'new' && !videoId)}
                 className="w-full py-2.5 font-mono text-[11px] font-semibold bg-accent text-bg rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent/90 transition-colors"
               >
                 {submitting ? 'Uploading…' : selectedCamp?.atLimit ? 'Campaign at limit — remove a video first' : 'Upload to Google Ads — IN Only'}

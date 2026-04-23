@@ -1,14 +1,15 @@
 /**
- * GET  /api/upload-video  → asset groups + existing YT video assets + active IN campaign videos
- * POST /api/upload-video  → upload (action=upload, default) | remove (action=remove)
+ * GET  /api/upload-video  → account video library + active IN campaign video lists
+ * POST /api/upload-video  → upload (action=upload) | remove (action=remove)
  *
+ * UAC (MULTI_CHANNEL) campaigns: videos live in ad.appAd.youtubeVideos[] — NOT asset links.
+ * assetGroupAssets and campaignAssets both fail for UAC. Correct path: ads:mutate.
  * Read: all 4 campaigns. Write/remove: hard-blocked to IN campaign IDs only.
- * Video limit: 20 per IN campaign — upload blocked if at limit.
  */
-import { getAccessToken, gaQuery, CAMPAIGN_IDS } from './_utils/google.js';
+import { getAccessToken, gaQuery, CAMPAIGN_IDS, fetchYoutubeTitles } from './_utils/google.js';
 import { kvGet } from './_utils/kv.js';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const IN_CAMPAIGN_IDS = ['22784768376', '22879160345'];
 const VIDEO_LIMIT = 20;
@@ -20,7 +21,13 @@ const CAMPAIGN_LABELS = {
   '23583625147': 'US iOS',
 };
 
-const VALID_FIELD_TYPES = ['YOUTUBE_VIDEO', 'PORTRAIT_YOUTUBE_VIDEO', 'SQUARE_YOUTUBE_VIDEO'];
+// UAC: one ad group per campaign, one ad per ad group
+const CAMPAIGN_AD_GROUPS = {
+  '22784768376': '182709178495',  // Fast Prog
+  '22879160345': '183171683706',  // Battle Act
+};
+
+const VIDEO_FIELD_TYPES = new Set(['YOUTUBE_VIDEO', 'PORTRAIT_YOUTUBE_VIDEO', 'SQUARE_YOUTUBE_VIDEO']);
 
 export function parseYouTubeId(input) {
   if (!input) return null;
@@ -46,27 +53,6 @@ function makeHeaders(token) {
   };
 }
 
-async function getAssetGroups(token) {
-  try {
-    const result = await gaQuery(token, `
-      SELECT asset_group.id, asset_group.name, asset_group.resource_name,
-             asset_group.status, campaign.id
-      FROM asset_group
-      WHERE campaign.id IN (${CAMPAIGN_IDS.join(', ')})
-    `);
-    if (result.error) return [];
-    return (result.results || []).map(r => ({
-      id:           r.assetGroup.id,
-      name:         r.assetGroup.name,
-      resourceName: r.assetGroup.resourceName,
-      status:       r.assetGroup.status,
-      campaignId:   r.campaign.id,
-      campaignLabel: CAMPAIGN_LABELS[r.campaign.id] || r.campaign.id,
-      writable:     IN_CAMPAIGN_IDS.includes(r.campaign.id),
-    }));
-  } catch { return []; }
-}
-
 async function getExistingVideoAssets(token) {
   const result = await gaQuery(token, `
     SELECT asset.id, asset.name, asset.resource_name,
@@ -76,45 +62,73 @@ async function getExistingVideoAssets(token) {
     LIMIT 1000
   `);
   if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
-  return (result.results || [])
+
+  const assets = (result.results || [])
     .map(r => ({
       id:           r.asset.id,
-      name:         r.asset.name,
+      name:         r.asset.name || '',
       resourceName: r.asset.resourceName,
       videoId:      r.asset.youtubeVideoAsset?.youtubeVideoId,
     }))
     .filter(a => a.videoId)
     .sort((a, b) => parseInt(b.id) - parseInt(a.id));
+
+  // UAC assets have no name in Google Ads API — fetch YouTube titles for all without one
+  const noName = assets.filter(a => !a.name).map(a => a.videoId);
+  if (noName.length > 0) {
+    const titles = await fetchYoutubeTitles(noName);
+    for (const a of assets) {
+      if (!a.name && titles[a.videoId]) a.name = titles[a.videoId];
+    }
+  }
+
+  return assets;
 }
 
-// Read live video data for IN campaigns from KV (populated by sync)
-async function getActiveCampaigns() {
-  return Promise.all(IN_CAMPAIGN_IDS.map(async (campId) => {
-    const live = await kvGet(`tracker/${campId}/live.json`);
-    const assets = (live?.assets || []).filter(a =>
-      a.fieldType === 'YOUTUBE_VIDEO' ||
-      a.fieldType === 'PORTRAIT_YOUTUBE_VIDEO' ||
-      a.fieldType === 'SQUARE_YOUTUBE_VIDEO'
-    );
-    return {
-      campaignId:    campId,
-      campaignLabel: CAMPAIGN_LABELS[campId],
-      count:         assets.length,
-      limit:         VIDEO_LIMIT,
-      atLimit:       assets.length >= VIDEO_LIMIT,
-      assets: assets.map(a => ({
-        id:               a.id,
-        key:              a.key,
-        name:             a.name,
-        youtubeId:        a.youtubeId,
-        fieldType:        a.fieldType,
-        orientation:      a.orientation,   // computed from asset name, more accurate than fieldType
-        spend:            a.spend,
-        cpa:              a.cpa,
-        performanceLabel: a.performanceLabel,
-      })),
-    };
-  }));
+// Get current video list from the actual ad (source of truth for UAC)
+async function getAdVideos(token, adGroupId) {
+  const result = await gaQuery(token, `
+    SELECT ad_group_ad.ad.resource_name, ad_group_ad.ad.app_ad.youtube_videos
+    FROM ad_group_ad
+    WHERE ad_group.id = ${adGroupId}
+  `);
+  if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
+  const ad = result.results?.[0]?.adGroupAd?.ad;
+  return {
+    adRN:   ad?.resourceName,
+    videos: ad?.appAd?.youtubeVideos || [],
+  };
+}
+
+async function addVideoToAd(token, customerId, adGroupId, assetRN) {
+  const { adRN, videos } = await getAdVideos(token, adGroupId);
+  if (videos.length >= VIDEO_LIMIT) throw new Error(`At ${VIDEO_LIMIT}-video limit — remove one first`);
+  if (videos.some(v => v.asset === assetRN)) throw new Error('Video already in this campaign');
+  const newList = [...videos, { asset: assetRN }];
+  const r = await fetch(
+    `https://googleads.googleapis.com/v23/customers/${customerId}/ads:mutate`,
+    { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
+      operations: [{ update: { resourceName: adRN, appAd: { youtubeVideos: newList } }, updateMask: 'app_ad.youtube_videos' }],
+    }) }
+  );
+  const data = await r.json();
+  if (!data.results) throw new Error(data.error?.message || JSON.stringify(data));
+  return { ok: true, count: newList.length };
+}
+
+async function removeVideoFromAd(token, customerId, adGroupId, assetRN) {
+  const { adRN, videos } = await getAdVideos(token, adGroupId);
+  if (!videos.some(v => v.asset === assetRN)) throw new Error('Video not found in this campaign ad');
+  const newList = videos.filter(v => v.asset !== assetRN);
+  const r = await fetch(
+    `https://googleads.googleapis.com/v23/customers/${customerId}/ads:mutate`,
+    { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
+      operations: [{ update: { resourceName: adRN, appAd: { youtubeVideos: newList } }, updateMask: 'app_ad.youtube_videos' }],
+    }) }
+  );
+  const data = await r.json();
+  if (!data.results) throw new Error(data.error?.message || JSON.stringify(data));
+  return { ok: true, count: newList.length };
 }
 
 async function createYouTubeAsset(token, customerId, videoId, assetName) {
@@ -129,66 +143,62 @@ async function createYouTubeAsset(token, customerId, videoId, assetName) {
   return data.results[0].resourceName;
 }
 
-async function linkViaAssetGroup(token, customerId, assetRN, assetGroupRN, fieldType) {
-  const r = await fetch(
-    `https://googleads.googleapis.com/v23/customers/${customerId}/assetGroupAssets:mutate`,
-    { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
-      operations: [{ create: { assetGroup: assetGroupRN, asset: assetRN, fieldType } }],
-    }) }
-  );
-  const data = await r.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return data.results?.[0]?.resourceName;
-}
+// Real-time ad video list + KV spend enrichment + asset library for names/thumbnails
+async function getActiveCampaigns(token, customerId, assetLibrary) {
+  return Promise.all(IN_CAMPAIGN_IDS.map(async (campId) => {
+    const adGroupId = CAMPAIGN_AD_GROUPS[campId];
+    const [{ videos: adVideos }, live] = await Promise.all([
+      getAdVideos(token, adGroupId),
+      kvGet(`tracker/${campId}/live.json`),
+    ]);
 
-async function linkViaCampaign(token, customerId, assetRN, campaignRN, fieldType) {
-  const r = await fetch(
-    `https://googleads.googleapis.com/v23/customers/${customerId}/campaignAssets:mutate`,
-    { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
-      operations: [{ create: { campaign: campaignRN, asset: assetRN, fieldType } }],
-    }) }
-  );
-  const data = await r.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return data.results?.[0]?.resourceName;
-}
+    // Sum spend across fieldType variants of the same asset (UAC may report multiple)
+    const kvByAssetId = {};
+    for (const a of (live?.assets || [])) {
+      if (!VIDEO_FIELD_TYPES.has(a.fieldType)) continue;
+      if (!kvByAssetId[a.id]) {
+        kvByAssetId[a.id] = {
+          name: a.name, youtubeId: a.youtubeId, orientation: a.orientation,
+          performanceLabel: a.performanceLabel || 'UNSPECIFIED',
+          spend: 0, conversions: 0,
+        };
+      }
+      kvByAssetId[a.id].spend       += a.spend || 0;
+      kvByAssetId[a.id].conversions += a.conversions || 0;
+      if (a.performanceLabel && a.performanceLabel !== 'UNSPECIFIED') {
+        kvByAssetId[a.id].performanceLabel = a.performanceLabel;
+      }
+    }
+    for (const kv of Object.values(kvByAssetId)) {
+      kv.cpa   = kv.conversions > 0 ? +(kv.spend / kv.conversions).toFixed(4) : null;
+      kv.spend = +kv.spend.toFixed(2);
+    }
 
-async function removeAsset(token, customerId, campaignId, assetId, fieldType) {
-  const assetRN = `customers/${customerId}/assets/${assetId}`;
+    const assets = adVideos.map(({ asset: assetRN }) => {
+      const assetId = assetRN.split('/').pop();
+      const kv  = kvByAssetId[assetId];
+      const lib = assetLibrary.get(assetId);
+      return {
+        id:               assetId,
+        assetRN,
+        name:             kv?.name || lib?.name || '',
+        youtubeId:        kv?.youtubeId || lib?.videoId || null,
+        orientation:      kv?.orientation || null,
+        spend:            kv?.spend ?? 0,
+        cpa:              kv?.cpa ?? null,
+        performanceLabel: kv?.performanceLabel || 'UNSPECIFIED',
+      };
+    });
 
-  // PMax campaigns link via assetGroupAssets — query to find the link first
-  const found = await gaQuery(token, `
-    SELECT asset_group_asset.resource_name
-    FROM asset_group_asset
-    WHERE asset_group_asset.asset = '${assetRN}'
-      AND asset_group.campaign.id = ${campaignId}
-      AND asset_group_asset.field_type = ${fieldType}
-  `);
-
-  if (found.results?.length > 0) {
-    const agaRN = found.results[0].assetGroupAsset.resourceName;
-    const r = await fetch(
-      `https://googleads.googleapis.com/v23/customers/${customerId}/assetGroupAssets:mutate`,
-      { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
-        operations: [{ remove: agaRN }],
-      }) }
-    );
-    const data = await r.json();
-    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-    return agaRN;
-  }
-
-  // Fallback: UAC / campaign-level asset link
-  const campaignAssetRN = `customers/${customerId}/campaignAssets/${campaignId}~${assetId}~${fieldType}`;
-  const r = await fetch(
-    `https://googleads.googleapis.com/v23/customers/${customerId}/campaignAssets:mutate`,
-    { method: 'POST', headers: makeHeaders(token), body: JSON.stringify({
-      operations: [{ remove: campaignAssetRN }],
-    }) }
-  );
-  const data = await r.json();
-  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return campaignAssetRN;
+    return {
+      campaignId:    campId,
+      campaignLabel: CAMPAIGN_LABELS[campId],
+      count:         adVideos.length,
+      limit:         VIDEO_LIMIT,
+      atLimit:       adVideos.length >= VIDEO_LIMIT,
+      assets,
+    };
+  }));
 }
 
 export default async function handler(req, res) {
@@ -202,12 +212,10 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const [assetGroups, videoAssets, activeCampaigns] = await Promise.all([
-        getAssetGroups(token),
-        getExistingVideoAssets(token),
-        getActiveCampaigns(),
-      ]);
-      return res.status(200).json({ assetGroups, videoAssets, activeCampaigns });
+      const videoAssets = await getExistingVideoAssets(token);
+      const assetLibrary = new Map(videoAssets.map(a => [a.id, a]));
+      const activeCampaigns = await getActiveCampaigns(token, customerId, assetLibrary);
+      return res.status(200).json({ assetGroups: [], videoAssets, activeCampaigns });
     } catch (e) {
       console.error('[upload-video GET]', e.message);
       return res.status(500).json({ error: e.message });
@@ -215,63 +223,41 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { action = 'upload', campaignId, assetId, fieldType,
-            youtubeUrl, existingAssetResourceName, assetGroupResourceName, name } = req.body || {};
+    const { action = 'upload', campaignId, assetId,
+            youtubeUrl, existingAssetResourceName, fieldType, name } = req.body || {};
 
-    // Safety gate — only IN campaigns can receive writes
     if (!IN_CAMPAIGN_IDS.includes(campaignId)) {
       return res.status(403).json({ error: `Write blocked: campaign ${campaignId} is not an IN campaign.` });
     }
+    const adGroupId = CAMPAIGN_AD_GROUPS[campaignId];
 
-    // REMOVE action
+    // REMOVE
     if (action === 'remove') {
-      if (!assetId || !fieldType) return res.status(400).json({ error: 'assetId and fieldType required for remove' });
+      if (!assetId) return res.status(400).json({ error: 'assetId required' });
+      const assetRN = `customers/${customerId}/assets/${assetId}`;
       try {
-        const removed = await removeAsset(token, customerId, campaignId, assetId, fieldType);
-        console.log(`[upload-video] Removed ${removed}`);
-        return res.status(200).json({ ok: true, removed });
+        const result = await removeVideoFromAd(token, customerId, adGroupId, assetRN);
+        console.log(`[upload-video] Removed asset ${assetId} from campaign ${campaignId}`);
+        return res.status(200).json(result);
       } catch (e) {
         console.error('[upload-video remove]', e.message);
         return res.status(500).json({ error: e.message });
       }
     }
 
-    // UPLOAD action — check limit first
-    if (!VALID_FIELD_TYPES.includes(fieldType)) {
-      return res.status(400).json({ error: `fieldType must be one of: ${VALID_FIELD_TYPES.join(', ')}` });
-    }
-
-    const activeCampaigns = await getActiveCampaigns();
-    const camp = activeCampaigns.find(c => c.campaignId === campaignId);
-    if (camp?.atLimit) {
-      return res.status(409).json({
-        error: `${camp.campaignLabel} is at the ${VIDEO_LIMIT}-video limit. Remove a video first.`,
-        count: camp.count,
-        limit: VIDEO_LIMIT,
-      });
-    }
-
+    // UPLOAD
     try {
       let assetRN = existingAssetResourceName;
       if (!assetRN) {
         const videoId = parseYouTubeId(youtubeUrl);
         if (!videoId) return res.status(400).json({ error: 'Could not parse YouTube video ID.' });
-        const assetName = name?.trim() || `UH_${videoId}_${fieldType}`;
+        const assetName = name?.trim() || `UH_${videoId}${fieldType ? '_' + fieldType : ''}`;
         assetRN = await createYouTubeAsset(token, customerId, videoId, assetName);
       }
-
-      let linkRN;
-      if (assetGroupResourceName) {
-        linkRN = await linkViaAssetGroup(token, customerId, assetRN, assetGroupResourceName, fieldType);
-      } else {
-        const campaignRN = `customers/${customerId}/campaigns/${campaignId}`;
-        linkRN = await linkViaCampaign(token, customerId, assetRN, campaignRN, fieldType);
-      }
-
-      console.log(`[upload-video] Linked ${assetRN} → campaign ${campaignId} [${fieldType}]`);
+      const result = await addVideoToAd(token, customerId, adGroupId, assetRN);
+      console.log(`[upload-video] Added ${assetRN} to campaign ${campaignId} (${adGroupId})`);
       return res.status(200).json({
-        ok: true, assetResourceName: assetRN, linkResourceName: linkRN,
-        campaignId, campaignLabel: CAMPAIGN_LABELS[campaignId], fieldType,
+        ...result, assetResourceName: assetRN, campaignId, campaignLabel: CAMPAIGN_LABELS[campaignId],
       });
     } catch (e) {
       console.error('[upload-video POST]', e.message, e.stack);
