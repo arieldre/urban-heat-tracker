@@ -82,7 +82,8 @@ async function getExistingVideoAssets(token) {
     }
   }
 
-  return assets;
+  // Only surface UH (Urban Heat) assets — exclude other campaigns in the account
+  return assets.filter(a => /^uh/i.test(a.name) || /urban heat/i.test(a.name));
 }
 
 // Get current video list from the actual ad (source of truth for UAC)
