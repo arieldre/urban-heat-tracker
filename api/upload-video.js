@@ -73,7 +73,7 @@ async function getExistingVideoAssets(token) {
            asset.youtube_video_asset.youtube_video_id
     FROM asset
     WHERE asset.type = YOUTUBE_VIDEO
-    LIMIT 200
+    LIMIT 1000
   `);
   if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
   return (result.results || [])
