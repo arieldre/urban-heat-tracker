@@ -11,6 +11,7 @@ const PERF_COLORS = {
   GOOD:        'text-accent2',
   LOW:         'text-red',
   LEARNING:    'text-orange',
+  PENDING:     'text-orange',
   UNSPECIFIED: 'text-muted',
 };
 

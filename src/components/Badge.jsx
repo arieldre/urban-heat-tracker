@@ -4,6 +4,7 @@ const styles = {
   GOOD:        'bg-[rgba(71,200,255,0.1)] text-accent2 border border-[rgba(71,200,255,0.25)]',
   LOW:         'bg-[rgba(255,71,87,0.08)] text-red border border-[rgba(255,71,87,0.2)]',
   LEARNING:    'bg-[rgba(255,170,71,0.1)] text-orange border border-[rgba(255,170,71,0.2)]',
+  PENDING:     'bg-[rgba(255,170,71,0.1)] text-orange border border-[rgba(255,170,71,0.2)]',
   UNSPECIFIED: 'bg-[rgba(100,100,100,0.1)] text-text2 border border-border',
 
   // Status

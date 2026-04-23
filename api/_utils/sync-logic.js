@@ -8,6 +8,12 @@ import {
   VIDEO_TYPES, TEXT_TYPES, detectOrientation, fetchYoutubeTitles,
 } from './google.js';
 
+// IN campaigns: check APP_AD video list to surface LEARNING (0-impression) videos
+const IN_AD_GROUPS = {
+  '22784768376': '182709178495',
+  '22879160345': '183171683706',
+};
+
 /**
  * Run full sync for all campaigns. Returns summary.
  */
@@ -113,6 +119,45 @@ export async function runSync() {
     }
   }
 
+  // Inject LEARNING videos: assets in APP_AD but not yet in ad_group_ad_asset_view (0 impressions)
+  for (const [campId, adGroupId] of Object.entries(IN_AD_GROUPS)) {
+    const adResult = await gaQuery(token,
+      `SELECT ad_group_ad.ad.app_ad.youtube_videos FROM ad_group_ad WHERE ad_group.id = ${adGroupId}`
+    );
+    const adVideos = adResult.results?.[0]?.adGroupAd?.ad?.appAd?.youtubeVideos || [];
+    const trackedAssetIds = new Set(Object.values(byCampaign[campId].videos).map(v => v.id));
+
+    const pendingIds = adVideos
+      .map(v => v.asset?.split('/').pop())
+      .filter(id => id && !trackedAssetIds.has(id));
+
+    if (!pendingIds.length) continue;
+
+    const assetResult = await gaQuery(token,
+      `SELECT asset.id, asset.youtube_video_asset.youtube_video_id FROM asset WHERE asset.id IN (${pendingIds.join(', ')})`
+    );
+    const pendingAssets = assetResult.results || [];
+    const pendingYtIds = pendingAssets.map(a => a.asset.youtubeVideoAsset?.youtubeVideoId).filter(Boolean);
+    const pendingTitles = await fetchYoutubeTitles(pendingYtIds);
+
+    for (const pa of pendingAssets) {
+      const assetId = pa.asset.id;
+      const ytId = pa.asset.youtubeVideoAsset?.youtubeVideoId;
+      const name = (ytId && pendingTitles[ytId]) || '';
+      const orientation = detectOrientation(name, 'YOUTUBE_VIDEO');
+      let fieldType = 'YOUTUBE_VIDEO';
+      if (orientation === '9x16') fieldType = 'PORTRAIT_YOUTUBE_VIDEO';
+      else if (orientation === '1x1') fieldType = 'SQUARE_YOUTUBE_VIDEO';
+      const key = `${assetId}_${fieldType}`;
+      byCampaign[campId].videos[key] = {
+        id: assetId, key, youtubeId: ytId || null, name, fieldType, orientation,
+        text: null, performanceLabel: 'LEARNING',
+        spend: 0, conversions: 0, impressions: 0, clicks: 0, daily: {},
+      };
+    }
+    console.log(`[sync] ${CAMPAIGN_LABELS[campId]}: ${pendingIds.length} LEARNING video(s) injected`);
+  }
+
   // Fetch YouTube titles for all videos
   const allYtIds = [];
   for (const camp of Object.values(byCampaign)) {
@@ -164,8 +209,8 @@ export async function runSync() {
       v.firstSeenAt = dailyEntries[0]?.[0] || to;
       v.lastSeenAt = dailyEntries[dailyEntries.length - 1]?.[0] || to;
 
-      // Classify: stale (no data in 3 days) OR UNSPECIFIED performance label → history
-      if (v.lastSeenAt < staleCutoff || v.performanceLabel === 'UNSPECIFIED') {
+      // Classify: stale (no data in 3 days) OR UNSPECIFIED → history. LEARNING/PENDING stay live.
+      if (!['LEARNING', 'PENDING'].includes(v.performanceLabel) && (v.lastSeenAt < staleCutoff || v.performanceLabel === 'UNSPECIFIED')) {
         autoHistory.push({
           id: v.id,
           key: v.key,
