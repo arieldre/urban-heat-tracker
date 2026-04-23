@@ -161,18 +161,20 @@ async function getActiveCampaigns(token, customerId, assetLibrary) {
         kvByAssetId[a.id] = {
           name: a.name, youtubeId: a.youtubeId, orientation: a.orientation,
           performanceLabel: a.performanceLabel || 'UNSPECIFIED',
-          spend: 0, conversions: 0,
+          spend: 0, conversions: 0, iaa: 0,
         };
       }
       kvByAssetId[a.id].spend       += a.spend || 0;
       kvByAssetId[a.id].conversions += a.conversions || 0;
+      kvByAssetId[a.id].iaa         += a.iaa || 0;
       if (a.performanceLabel && a.performanceLabel !== 'UNSPECIFIED') {
         kvByAssetId[a.id].performanceLabel = a.performanceLabel;
       }
     }
     for (const kv of Object.values(kvByAssetId)) {
-      kv.cpa   = kv.conversions > 0 ? +(kv.spend / kv.conversions).toFixed(4) : null;
-      kv.spend = +kv.spend.toFixed(2);
+      kv.cpa    = kv.conversions > 0 ? +(kv.spend / kv.conversions).toFixed(4) : null;
+      kv.cpaIaa = kv.iaa > 0         ? +(kv.spend / kv.iaa).toFixed(4)         : null;
+      kv.spend  = +kv.spend.toFixed(2);
     }
 
     const assets = adVideos.map(({ asset: assetRN }) => {
@@ -187,6 +189,7 @@ async function getActiveCampaigns(token, customerId, assetLibrary) {
         orientation:      kv?.orientation || null,
         spend:            kv?.spend ?? 0,
         cpa:              kv?.cpa ?? null,
+        cpaIaa:           kv?.cpaIaa ?? null,
         performanceLabel: kv?.performanceLabel || 'UNSPECIFIED',
       };
     });

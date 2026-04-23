@@ -42,7 +42,8 @@ export async function runSync() {
       ad_group_ad_asset_view.field_type,
       ad_group_ad_asset_view.enabled,
       segments.date,
-      metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions
+      metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions,
+      metrics.all_conversions
     FROM ad_group_ad_asset_view
     WHERE segments.date BETWEEN '${from}' AND '${to}'
       AND campaign.id IN (${CAMPAIGN_IDS.join(', ')})
@@ -88,6 +89,7 @@ export async function runSync() {
         performanceLabel: 'UNSPECIFIED',
         spend: 0,
         conversions: 0,
+        allConversions: 0,
         impressions: 0,
         clicks: 0,
         daily: {},
@@ -103,11 +105,13 @@ export async function runSync() {
     const clicks = parseInt(r.metrics?.clicks || 0);
     const spend = (r.metrics?.costMicros || 0) / 1e6;
     const conversions = parseFloat(r.metrics?.conversions || 0);
+    const allConversions = parseFloat(r.metrics?.allConversions || 0);
 
     m.impressions += impressions;
     m.clicks += clicks;
     m.spend += spend;
     m.conversions += conversions;
+    m.allConversions += allConversions;
 
     const date = r.segments?.date;
     if (date) {
@@ -191,7 +195,10 @@ export async function runSync() {
       v.orientation = detectOrientation(v.name, v.fieldType);
       v.spend = +v.spend.toFixed(2);
       v.conversions = +v.conversions.toFixed(2);
-      v.cpa = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(4) : null;
+      v.allConversions = +v.allConversions.toFixed(2);
+      v.iaa = +(v.allConversions - v.conversions).toFixed(2);
+      v.cpa    = v.conversions > 0 ? +(v.spend / v.conversions).toFixed(4) : null;
+      v.cpaIaa = v.iaa > 0          ? +(v.spend / v.iaa).toFixed(4)         : null;
       v.ctr = v.impressions > 0 ? +((v.clicks / v.impressions) * 100).toFixed(3) : null;
       v.url = v.youtubeId ? `https://www.youtube.com/watch?v=${v.youtubeId}` : null;
 
