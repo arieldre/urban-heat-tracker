@@ -205,7 +205,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const customerId = process.env.GOOGLE_CUSTOMER_ID;
+  // Strip dashes — Google Ads API resource names always use numeric format (9698502211 not 969-850-2211)
+  const customerId = (process.env.GOOGLE_CUSTOMER_ID || '').replace(/-/g, '');
   let token;
   try { token = await getAccessToken(); }
   catch (e) { return res.status(500).json({ error: 'Google auth failed: ' + e.message }); }
