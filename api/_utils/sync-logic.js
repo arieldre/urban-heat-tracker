@@ -14,11 +14,11 @@ import {
 export async function runSync() {
   const token = await getAccessToken();
 
-  // Date range: max(2026-03-01, today-45d) → today
-  // Include today so intraday spend is visible on each sync.
+  // Date range: max(2026-03-01, today-30d) → today
+  // 30d matches Google Ads default report window. Includes today for intraday spend.
   const today = new Date();
   const rolling = new Date(today);
-  rolling.setDate(rolling.getDate() - 45);
+  rolling.setDate(rolling.getDate() - 30);
   const earliest = new Date('2026-03-01');
   const from = (rolling > earliest ? rolling : earliest).toISOString().slice(0, 10);
   const to = today.toISOString().slice(0, 10);
