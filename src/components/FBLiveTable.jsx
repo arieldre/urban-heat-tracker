@@ -1,6 +1,10 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, Fragment, useCallback } from 'react';
 import Badge from './Badge.jsx';
 import { cpaTrend, spendVelocity, daysActive, dynamicCpaThresholds } from '../utils/trends.js';
+
+// Only ads in this campaign expose pause/resume controls.
+// Matches FB_CONTROL_CAMPAIGN_ID on the server — server re-verifies before mutating.
+const CONTROL_CAMPAIGN_ID = '120243500953780720';
 
 function TrendArrow({ direction, label }) {
   if (direction === 'new') return <span className="text-muted text-[9px]">NEW</span>;
@@ -38,12 +42,29 @@ function sortAssets(assets, sortKey, sortDir) {
   });
 }
 
-export default function FBLiveTable({ assets }) {
+export default function FBLiveTable({ assets, onControlAd }) {
   const [sortKey, setSortKey] = useState('cpa');
   const [sortDir, setSortDir] = useState('asc');
   const [expandedId, setExpandedId] = useState(null);
   const [search, setSearch] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
+  const [pendingIds, setPendingIds] = useState(new Set());
+  const [optimisticStatus, setOptimisticStatus] = useState(new Map());
+
+  const handleControl = useCallback(async (e, asset) => {
+    e.stopPropagation();
+    const currentStatus = optimisticStatus.get(asset.id) ?? asset.status;
+    const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    setPendingIds(s => new Set([...s, asset.id]));
+    try {
+      await onControlAd(asset.id, newStatus);
+      setOptimisticStatus(m => new Map([...m, [asset.id, newStatus]]));
+    } catch (e) {
+      console.error('[fb-control]', e.message);
+    } finally {
+      setPendingIds(s => { const n = new Set(s); n.delete(asset.id); return n; });
+    }
+  }, [onControlAd, optimisticStatus]);
 
   // Use purchases as the CPA metric (FB AEO campaigns optimize for purchase)
   const enriched = useMemo(() => assets.map(a => ({
@@ -100,6 +121,7 @@ export default function FBLiveTable({ assets }) {
     { key: 'purchases', label: 'Purchases' },
     { key: 'installs', label: 'Installs' },
     { key: '_days', label: 'Days' },
+    { key: '_control', label: '' },
   ];
 
   return (
@@ -228,6 +250,28 @@ export default function FBLiveTable({ assets }) {
                   {/* Days */}
                   <td className="font-mono text-[10px] text-text2">
                     {asset._days ? `${asset._days}d` : '\u2013'}
+                  </td>
+
+                  {/* Pause / Resume \u2014 only for the whitelisted control campaign */}
+                  <td>
+                    {asset.campaignId === CONTROL_CAMPAIGN_ID && onControlAd ? (() => {
+                      const isPending = pendingIds.has(asset.id);
+                      const currentStatus = optimisticStatus.get(asset.id) ?? asset.status;
+                      const isActive = currentStatus === 'ACTIVE';
+                      return (
+                        <button
+                          disabled={isPending}
+                          onClick={e => handleControl(e, asset)}
+                          className={`font-mono text-[9px] px-2 py-0.5 rounded border cursor-pointer transition-all whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+                            isActive
+                              ? 'border-orange text-orange hover:bg-orange hover:text-white'
+                              : 'border-green text-green hover:bg-green hover:text-white'
+                          }`}
+                        >
+                          {isPending ? '...' : isActive ? '\u23f8 Pause' : '\u25b6 Resume'}
+                        </button>
+                      );
+                    })() : null}
                   </td>
                 </tr>
 

@@ -86,6 +86,19 @@ export default function App() {
     }
   }, [network, fbRefresh, googleRefresh]);
 
+  const handleControlAd = useCallback(async (adId, status) => {
+    const r = await fetch('/api/fb-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adId, status }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${r.status}`);
+    }
+    return r.json();
+  }, []);
+
   const handleSnapshot = useCallback(async () => {
     try {
       const r = await fetch('/api/snapshot', { method: 'POST' });
@@ -173,7 +186,7 @@ export default function App() {
 
         {/* Facebook views */}
         {network === 'facebook' && data && activeTab === 'live' && (
-          <FBLiveTable assets={live} />
+          <FBLiveTable assets={live} onControlAd={handleControlAd} />
         )}
         {network === 'facebook' && data && activeTab === 'history' && (
           <FBHistoryTable entries={history} />
