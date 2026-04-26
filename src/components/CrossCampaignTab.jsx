@@ -7,7 +7,7 @@ export default function CrossCampaignTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/tracker-all')
+    fetch('/api/snapshot')
       .then(r => r.json())
       .then(d => { setAllData(d.campaigns); setLoading(false); })
       .catch(() => setLoading(false));
