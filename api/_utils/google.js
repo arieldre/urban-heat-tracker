@@ -34,15 +34,15 @@ export async function getAccessToken() {
   return _cachedToken;
 }
 
-export async function gaQuery(token, query) {
+export async function gaQuery(token, query, customerId = GOOGLE_CUSTOMER_ID) {
   const r = await fetch(
-    `https://googleads.googleapis.com/v23/customers/${GOOGLE_CUSTOMER_ID}/googleAds:search`,
+    `https://googleads.googleapis.com/v23/customers/${customerId}/googleAds:search`,
     {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'developer-token': GOOGLE_DEVELOPER_TOKEN,
-        'login-customer-id': GOOGLE_CUSTOMER_ID,
+        'login-customer-id': customerId,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query }),

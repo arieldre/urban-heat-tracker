@@ -4,6 +4,7 @@
   ],
   "crons": [
     { "path": "/api/cron/sync-tracker",    "schedule": "0 6 * * *" },
-    { "path": "/api/cron/fb-sync-tracker", "schedule": "0 7 * * *" }
+    { "path": "/api/cron/fb-sync-tracker",     "schedule": "0 7 * * *" },
+    { "path": "/api/cron/inv-fb-sync-tracker", "schedule": "0 8 * * *" }
   ]
 }

@@ -9,14 +9,20 @@ import HeadToHead from './components/HeadToHead.jsx';
 import UploadVideosTab from './components/UploadVideosTab.jsx';
 import FBLiveTable from './components/FBLiveTable.jsx';
 import FBHistoryTable from './components/FBHistoryTable.jsx';
+import InvokersFBLiveTable from './components/InvokersFBLiveTable.jsx';
+import InvokersGoogleTable from './components/InvokersGoogleTable.jsx';
 import { useTrackerData } from './hooks/useTrackerData.js';
 import { useFBData } from './hooks/useFBData.js';
+import { useInvokersFBData } from './hooks/useInvokersFBData.js';
+import { useInvokersGoogleData } from './hooks/useInvokersGoogleData.js';
 import { CAMPAIGNS } from './config.js';
 
 export default function App() {
+  const [game, setGame] = useState('uh');
   const [network, setNetwork] = useState('google');
   const [campaignId, setCampaignId] = useState(CAMPAIGNS[0].id);
   const [fbCampaignId, setFBCampaignId] = useState('all');
+  const [invCampaignId, setInvCampaignId] = useState('all');
   const [activeTab, setActiveTab] = useState('live');
   const [syncing, setSyncing] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('uh-theme') || 'dark');
@@ -25,22 +31,29 @@ export default function App() {
 
   const { data: googleData, loading: googleLoading, error: googleError, refresh: googleRefresh } = useTrackerData(campaignId);
   const { data: fbData, loading: fbLoading, error: fbError, refresh: fbRefresh } = useFBData(fbCampaignId);
+  const { data: invData, loading: invLoading, error: invError, refresh: invRefresh } = useInvokersFBData(invCampaignId);
+  const { data: invGoogleData, loading: invGoogleLoading, error: invGoogleError, refresh: invGoogleRefresh } = useInvokersGoogleData();
 
-  const data = network === 'facebook' ? fbData : googleData;
-  const loading = network === 'facebook' ? fbLoading : googleLoading;
-  const error = network === 'facebook' ? fbError : googleError;
+  const isInvokers = game === 'inv';
+  const isInvGoogle = isInvokers && network === 'google';
+  const data = isInvGoogle ? null : isInvokers ? invData : (network === 'facebook' ? fbData : googleData);
+  const loading = isInvGoogle ? invGoogleLoading : isInvokers ? invLoading : (network === 'facebook' ? fbLoading : googleLoading);
+  const error = isInvGoogle ? invGoogleError : isInvokers ? invError : (network === 'facebook' ? fbError : googleError);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('uh-theme', theme);
   }, [theme]);
 
-  // Reset to live tab when switching networks if on a Google-only tab
+  // Reset to live tab when switching networks/games if on incompatible tab
   useEffect(() => {
     if (network === 'facebook' && (activeTab === 'descriptions' || activeTab === 'compare')) {
       setActiveTab('live');
     }
-  }, [network, activeTab]);
+    if (isInvokers && activeTab !== 'live' && activeTab !== 'history') {
+      setActiveTab('live');
+    }
+  }, [network, activeTab, isInvokers]);
 
   // Silent auto-sync every 30 min so spend stays current throughout the day
   useEffect(() => {
@@ -49,15 +62,16 @@ export default function App() {
         await Promise.all([
           fetch('/api/sync').then(r => r.ok ? googleRefresh() : null),
           fetch('/api/fb-sync').then(r => r.ok ? fbRefresh() : null),
+          fetch('/api/fb-sync?game=inv').then(r => r.ok ? invRefresh() : null),
         ]);
       } catch {}
     };
     const id = setInterval(silentSync, 30 * 60 * 1000);
     return () => clearInterval(id);
-  }, [googleRefresh, fbRefresh]);
+  }, [googleRefresh, fbRefresh, invRefresh]);
 
-  // FB campaign list comes from any FB data response (always included)
   const fbCampaigns = fbData?.campaigns || [];
+  const invCampaigns = invData?.campaigns || [];
 
   const live = data?.live || [];
   const history = data?.history || [];
@@ -65,32 +79,30 @@ export default function App() {
   const descriptionsHistory = data?.descriptionsHistory || [];
   const tags = data?.tags || {};
 
+  const invLive = invData?.live || [];
+  const invHistory = invData?.history || [];
+
+  const invGoogleVideos = invGoogleData?.videos || [];
+
   const stats = {
-    live: live.filter(a => a.status === 'live' || a.status === 'ACTIVE').length,
-    pending: live.filter(a => a.status === 'pending' || a.status === 'PAUSED').length,
-    history: history.length,
+    live: isInvGoogle
+      ? invGoogleVideos.filter(v => v.active).length
+      : isInvokers
+        ? invLive.filter(a => a.status === 'ACTIVE').length
+        : live.filter(a => a.status === 'live' || a.status === 'ACTIVE').length,
+    pending: isInvGoogle
+      ? invGoogleVideos.filter(v => !v.active).length
+      : isInvokers
+        ? invLive.filter(a => a.status === 'PAUSED').length
+        : live.filter(a => a.status === 'pending' || a.status === 'PAUSED').length,
+    history: isInvGoogle ? 0 : isInvokers ? invHistory.length : history.length,
   };
 
-  const handleSync = useCallback(async () => {
-    setSyncing(true);
-    try {
-      const endpoint = network === 'facebook' ? '/api/fb-sync' : '/api/sync';
-      const r = await fetch(endpoint);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      if (network === 'facebook') await fbRefresh();
-      else await googleRefresh();
-    } catch (e) {
-      console.error('Sync failed:', e);
-    } finally {
-      setSyncing(false);
-    }
-  }, [network, fbRefresh, googleRefresh]);
-
-  const handleControlAd = useCallback(async (adId, status) => {
-    const r = await fetch('/api/fb-control', {
+  const handleControlInvGoogleVideo = useCallback(async (assetId, action) => {
+    const r = await fetch('/api/edit-descriptions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adId, status }),
+      body: JSON.stringify({ type: 'videos', assetId, action }),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
@@ -98,6 +110,42 @@ export default function App() {
     }
     return r.json();
   }, []);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      if (isInvGoogle) {
+        await invGoogleRefresh();
+      } else if (isInvokers) {
+        const r = await fetch('/api/fb-sync?game=inv');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        await invRefresh();
+      } else {
+        const endpoint = network === 'facebook' ? '/api/fb-sync' : '/api/sync';
+        const r = await fetch(endpoint);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (network === 'facebook') await fbRefresh();
+        else await googleRefresh();
+      }
+    } catch (e) {
+      console.error('Sync failed:', e);
+    } finally {
+      setSyncing(false);
+    }
+  }, [isInvGoogle, isInvokers, network, fbRefresh, googleRefresh, invRefresh, invGoogleRefresh]);
+
+  const handleControlAd = useCallback(async (adId, status) => {
+    const r = await fetch('/api/fb-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adId, status, ...(isInvokers && { game: 'inv' }) }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${r.status}`);
+    }
+    return r.json();
+  }, [isInvokers]);
 
   const handleSnapshot = useCallback(async () => {
     try {
@@ -117,6 +165,8 @@ export default function App() {
   return (
     <>
       <Header
+        game={game}
+        onGameChange={g => { setGame(g); setActiveTab('live'); }}
         network={network}
         onNetworkChange={setNetwork}
         selectedCampaign={campaignId}
@@ -124,10 +174,13 @@ export default function App() {
         fbCampaigns={fbCampaigns}
         selectedFBCampaign={fbCampaignId}
         onFBCampaignChange={setFBCampaignId}
+        invCampaigns={invCampaigns}
+        selectedInvCampaign={invCampaignId}
+        onInvCampaignChange={setInvCampaignId}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         stats={stats}
-        lastSyncedAt={data?.lastSyncedAt}
+        lastSyncedAt={isInvokers ? invData?.lastSyncedAt : data?.lastSyncedAt}
         onSync={handleSync}
         syncing={syncing}
         theme={theme}
@@ -148,12 +201,12 @@ export default function App() {
           </div>
         )}
 
-        {error && !data && (
+        {error && !data && !invGoogleData && (
           <div className="flex items-center justify-center h-full">
             <div className="font-mono text-sm text-red">
               Error: {error}
               <button
-                onClick={network === 'facebook' ? fbRefresh : googleRefresh}
+                onClick={isInvGoogle ? invGoogleRefresh : network === 'facebook' ? fbRefresh : googleRefresh}
                 className="ml-3 text-accent2 underline cursor-pointer"
               >
                 Retry
@@ -184,15 +237,28 @@ export default function App() {
           <UploadVideosTab />
         )}
 
-        {/* Facebook views */}
-        {network === 'facebook' && data && activeTab === 'live' && (
+        {/* Facebook views — Urban Heat */}
+        {!isInvokers && network === 'facebook' && data && activeTab === 'live' && (
           <FBLiveTable assets={live} onControlAd={handleControlAd} />
         )}
-        {network === 'facebook' && data && activeTab === 'history' && (
+        {!isInvokers && network === 'facebook' && data && activeTab === 'history' && (
           <FBHistoryTable entries={history} />
         )}
 
-        {data && !loading && live.length === 0 && history.length === 0 && activeTab !== 'compare' && (
+        {/* Invokers — Facebook views */}
+        {isInvokers && !isInvGoogle && invData && activeTab === 'live' && (
+          <InvokersFBLiveTable assets={invLive} onControlAd={handleControlAd} />
+        )}
+        {isInvokers && !isInvGoogle && invData && activeTab === 'history' && (
+          <FBHistoryTable entries={invHistory} />
+        )}
+
+        {/* Invokers — Google views */}
+        {isInvGoogle && invGoogleData && activeTab === 'live' && (
+          <InvokersGoogleTable videos={invGoogleVideos} onControlVideo={handleControlInvGoogleVideo} />
+        )}
+
+        {!isInvGoogle && data && !loading && live.length === 0 && history.length === 0 && activeTab !== 'compare' && (
           <div className="flex items-center justify-center h-64">
             <div className="text-center font-mono text-sm text-muted">
               <div className="mb-2">No data yet.</div>
