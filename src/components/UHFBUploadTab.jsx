@@ -37,6 +37,29 @@ export default function UHFBUploadTab() {
   const [results, setResults] = useState(null);
   const [submitError, setSubmitError] = useState(null);
 
+  const [pendingIds, setPendingIds] = useState(new Set());
+  const [optimisticStatus, setOptimisticStatus] = useState(new Map());
+
+  const handleControl = useCallback(async (ad) => {
+    const currentStatus = optimisticStatus.get(ad.id) ?? ad.status;
+    const newStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    setPendingIds(s => new Set([...s, ad.id]));
+    try {
+      const r = await fetch('/api/fb-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adId: ad.id, status: newStatus, game: 'uh' }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);
+      setOptimisticStatus(m => new Map([...m, [ad.id, newStatus]]));
+    } catch (e) {
+      console.error('[uh-fb-upload-control]', e.message);
+    } finally {
+      setPendingIds(s => { const n = new Set(s); n.delete(ad.id); return n; });
+    }
+  }, [optimisticStatus]);
+
   const loadData = useCallback((isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
@@ -49,9 +72,12 @@ export default function UHFBUploadTab() {
       setAds(liveAds.ads || []);
       setAdsets(ads.adsets || []);
       if (ads.adsets?.length > 0 && !adsetId) setAdsetId(ads.adsets[0].id);
+      setOptimisticStatus(new Map());
     }).catch(e => setLoadError(e.message))
       .finally(() => { setLoading(false); setRefreshing(false); });
   }, []);
+
+
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -113,12 +139,12 @@ export default function UHFBUploadTab() {
   };
 
   const activeAdVideoIds = new Set(
-    ads.filter(a => a.status === 'ACTIVE' && a.videoId).map(a => a.videoId)
+    ads.filter(a => (optimisticStatus.get(a.id) ?? a.status) === 'ACTIVE' && a.videoId).map(a => a.videoId)
   );
   const activeLibrary = library.filter(v => activeAdVideoIds.has(v.id));
   const availableLibrary = library.filter(v => !activeAdVideoIds.has(v.id));
-  const activeAds = ads.filter(a => a.status === 'ACTIVE');
-  const pausedAds = ads.filter(a => a.status === 'PAUSED');
+  const activeAds = ads.filter(a => (optimisticStatus.get(a.id) ?? a.status) === 'ACTIVE');
+  const pausedAds = ads.filter(a => (optimisticStatus.get(a.id) ?? a.status) === 'PAUSED');
 
   if (loading) return <div className="p-6 font-mono text-[11px] text-muted">Loading video library…</div>;
   if (loadError) return <div className="p-6 font-mono text-[11px] text-red">{loadError}</div>;
@@ -204,31 +230,46 @@ export default function UHFBUploadTab() {
 
         {/* Active ads — read only, no pause (UH token is ads_read only) */}
         <div className="border-b border-border p-5">
-          <div className="font-mono text-[10px] text-text2 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <div className="font-mono text-[10px] text-text2 uppercase tracking-wider mb-3">
             Active Ads ({activeAds.length})
-            <span className="text-muted normal-case text-[9px]">read-only</span>
           </div>
 
           {ads.length === 0 ? (
             <div className="font-mono text-[10px] text-muted">No active or paused ads.</div>
           ) : (
             <div className="bg-surface2 border border-border rounded px-3 py-1">
-              {[...activeAds, ...pausedAds].map(ad => (
-                <div key={ad.id} className={`flex items-start gap-2 py-2 border-b border-border/50 last:border-0 ${ad.status !== 'ACTIVE' ? 'opacity-40' : ''}`}>
-                  {ad.thumbnailUrl && (
-                    <img
-                      src={ad.thumbnailUrl}
-                      alt=""
-                      className="w-[56px] h-[32px] object-cover rounded shrink-0 bg-bg mt-0.5"
-                      onError={e => { e.target.style.display = 'none'; }}
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono text-[10px] text-text break-words leading-snug">{ad.name}</div>
-                    <div className="font-mono text-[9px] text-muted mt-0.5">{ad.status}</div>
+              {[...activeAds, ...pausedAds].map(ad => {
+                const currentStatus = optimisticStatus.get(ad.id) ?? ad.status;
+                const isActive = currentStatus === 'ACTIVE';
+                const isPending = pendingIds.has(ad.id);
+                return (
+                  <div key={ad.id} className={`flex items-start gap-2 py-2 border-b border-border/50 last:border-0 ${!isActive ? 'opacity-40' : ''}`}>
+                    {ad.thumbnailUrl && (
+                      <img
+                        src={ad.thumbnailUrl}
+                        alt=""
+                        className="w-[56px] h-[32px] object-cover rounded shrink-0 bg-bg mt-0.5"
+                        onError={e => { e.target.style.display = 'none'; }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-[10px] text-text break-words leading-snug">{ad.name}</div>
+                      <div className="font-mono text-[9px] text-muted mt-0.5">{currentStatus}</div>
+                    </div>
+                    <button
+                      onClick={() => handleControl(ad)}
+                      disabled={isPending}
+                      className={`shrink-0 font-mono text-[9px] px-1.5 py-0.5 border rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors ml-1 ${
+                        isActive
+                          ? 'border-orange/40 text-orange hover:border-orange'
+                          : 'border-green/40 text-green hover:border-green'
+                      }`}
+                    >
+                      {isPending ? '…' : isActive ? '⏸ Pause' : '▶ Resume'}
+                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
