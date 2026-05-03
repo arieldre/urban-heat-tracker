@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       campaignName: CAMPAIGN_LABELS[campaignId] || campaignId,
       live: live?.assets || [],
       lastSyncedAt: live?.lastSyncedAt || null,
+      campaignStats: live?.campaignStats || null,
       history: history || [],
       descriptions: descriptions?.live || descriptions || [],
       descriptionsHistory: descriptions?.history || [],

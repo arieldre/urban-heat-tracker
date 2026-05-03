@@ -145,6 +145,34 @@ export async function runSync() {
     console.log(`[sync] all_conversions: ${allConvRaw.results?.length} rows merged`);
   }
 
+  // Campaign-level metrics for accurate summary CPA.
+  // Asset-level ad_group_ad_asset_view gives each asset full conversion credit (not fractional),
+  // causing summed asset conversions to be N× inflated. Campaign-level query matches Google Ads UI.
+  const campStatsRaw = await gaQuery(token, `
+    SELECT campaign.id, metrics.cost_micros, metrics.conversions
+    FROM campaign
+    WHERE segments.date BETWEEN '${from}' AND '${to}'
+      AND campaign.id IN (${CAMPAIGN_IDS.join(', ')})
+      AND campaign.status = 'ENABLED'
+  `);
+  const campaignStats = {};
+  if (campStatsRaw.error) {
+    console.error('[sync] campaign stats query failed:', JSON.stringify(campStatsRaw.error));
+  } else {
+    for (const r of campStatsRaw.results || []) {
+      const cid = r.campaign?.id;
+      if (!cid) continue;
+      const spend = (r.metrics?.costMicros || 0) / 1e6;
+      const conversions = parseFloat(r.metrics?.conversions || 0);
+      campaignStats[cid] = {
+        spend: +spend.toFixed(2),
+        conversions: +conversions.toFixed(2),
+        cpa: conversions > 0 ? +(spend / conversions).toFixed(4) : null,
+      };
+    }
+    console.log(`[sync] campaign stats: ${Object.keys(campaignStats).length} campaigns`);
+  }
+
   // Inject LEARNING videos: assets in APP_AD but not yet in ad_group_ad_asset_view (0 impressions)
   for (const [campId, adGroupId] of Object.entries(IN_AD_GROUPS)) {
     const adResult = await gaQuery(token,
@@ -333,6 +361,7 @@ export async function runSync() {
       kvSet(`tracker/${campId}/live.json`, {
         lastSyncedAt: now,
         campaignName: CAMPAIGN_LABELS[campId] || campId,
+        campaignStats: campaignStats[campId] || null,
         assets: liveAssets,
       }),
       kvSet(`tracker/${campId}/history.json`, mergedHistory),

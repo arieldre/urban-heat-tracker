@@ -86,6 +86,7 @@ export default function App() {
   const descriptions = data?.descriptions || [];
   const descriptionsHistory = data?.descriptionsHistory || [];
   const tags = data?.tags || {};
+  const campaignStats = googleData?.campaignStats || null;
 
   const invLive = invData?.live || [];
   const invHistory = invData?.history || [];
@@ -199,7 +200,7 @@ export default function App() {
       />
 
       {data && activeTab === 'live' && network === 'google' && (
-        <CampaignSummary assets={live} history={history} />
+        <CampaignSummary assets={live} history={history} campaignStats={campaignStats} />
       )}
 
       <div className="flex-1 overflow-auto bg-bg">

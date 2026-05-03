@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-export default function CampaignSummary({ assets, history }) {
+export default function CampaignSummary({ assets, history, campaignStats }) {
   const stats = useMemo(() => {
     const live = assets.filter(a => a.status === 'live');
     const totalSpend = live.reduce((s, a) => s + a.spend, 0);
@@ -15,8 +15,15 @@ export default function CampaignSummary({ assets, history }) {
     const best = ranked[0] || null;
     const worst = ranked[ranked.length - 1] || null;
 
-    return { totalSpend, totalConv, totalImpr, avgCpa, ctr, best, worst, liveCount: live.length, historyCount: history.length };
-  }, [assets, history]);
+    // Campaign-level metrics override asset-level aggregation for accurate CPA.
+    // Asset-level ad_group_ad_asset_view gives full conversion credit to each asset (not fractional),
+    // so summing across N assets inflates conversions N×. Campaign-level matches Google Ads UI.
+    const displaySpend = campaignStats?.spend ?? totalSpend;
+    const displayConv = campaignStats?.conversions ?? totalConv;
+    const displayCpa = campaignStats?.cpa ?? avgCpa;
+
+    return { totalSpend: displaySpend, totalConv: displayConv, totalImpr, avgCpa: displayCpa, ctr, best, worst, liveCount: live.length, historyCount: history.length };
+  }, [assets, history, campaignStats]);
 
   const cards = [
     { label: 'Total Spend', value: `$${stats.totalSpend.toFixed(0)}`, color: 'text-text' },
