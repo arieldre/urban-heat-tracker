@@ -1,6 +1,7 @@
 import { hasCredentials } from './_utils/facebook.js';
 import { getAdCampaignId, updateAdStatus } from './_utils/fb-mutations.js';
 import { hasInvCredentials, updateInvAdStatus } from './_utils/invokers-facebook.js';
+import { kvGet, kvSet } from './_utils/kv.js';
 
 const ALLOWED_CAMPAIGN = process.env.FB_CONTROL_CAMPAIGN_ID;
 const VALID_STATUSES = new Set(['ACTIVE', 'PAUSED']);
@@ -51,11 +52,19 @@ export default async function handler(req, res) {
 
     try {
       if (action === 'library') {
+        const cacheKey = `library/fb-${game}.json`;
+        const refresh = req.query.refresh === '1';
+        if (!refresh) {
+          const cached = await kvGet(cacheKey);
+          if (cached) return res.json(cached);
+        }
         const videos = await fbGetAll(token, `${account}/advideos`, {
           fields: 'id,title,picture,length,created_time',
         });
         videos.sort((a, b) => new Date(b.created_time) - new Date(a.created_time));
-        return res.json({ videos });
+        const result = { videos };
+        kvSet(cacheKey, result, 4 * 3600).catch(e => console.error('[kv] fb library cache write:', e.message));
+        return res.json(result);
       }
 
       if (action === 'used') {

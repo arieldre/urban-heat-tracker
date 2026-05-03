@@ -45,7 +45,7 @@ export default function InvokersFBUploadTab() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     Promise.all([
-      fetch('/api/fb-control?action=library&game=inv').then(r => r.json()),
+      fetch(`/api/fb-control?action=library&game=inv${isRefresh ? '&refresh=1' : ''}`).then(r => r.json()),
       fetch('/api/fb-control?action=live-ads&game=inv').then(r => r.json()),
       fetch('/api/fb-control?action=adsets&game=inv').then(r => r.json()),
     ]).then(([lib, liveAds, ads]) => {

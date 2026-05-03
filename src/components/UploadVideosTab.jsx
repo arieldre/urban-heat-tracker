@@ -16,11 +16,6 @@ const PERF_COLORS = {
   UNSPECIFIED: 'text-muted',
 };
 
-const IN_CAMPAIGNS = [
-  { id: '22784768376', label: 'Fast Prog (IN GP)' },
-  { id: '22879160345', label: 'Battle Act (IN GP)' },
-];
-
 function parseYouTubeId(input) {
   if (!input) return null;
   const t = input.trim();
@@ -36,7 +31,6 @@ function parseYouTubeId(input) {
   return null;
 }
 
-// Parses WxH from asset name to determine fieldType
 function detectOrientationFromName(name) {
   if (!name) return null;
   const m = name.match(/(\d{3,4})x(\d{3,4})/);
@@ -48,16 +42,23 @@ function detectOrientationFromName(name) {
   return 'YOUTUBE_VIDEO';
 }
 
-function VideoThumb({ videoId, name }) {
+function VideoThumb({ videoId, name, inHistory }) {
   return (
-    <div className="flex items-start gap-3 p-2.5 rounded border border-border bg-surface2">
-      <VideoPreview youtubeId={videoId}>
-        <img
-          src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
-          alt=""
-          className="w-[80px] h-[45px] object-cover rounded shrink-0 bg-bg mt-0.5"
-        />
-      </VideoPreview>
+    <div className={`flex items-start gap-3 p-2.5 rounded border bg-surface2 ${inHistory ? 'border-orange/40' : 'border-border'}`}>
+      <div className="relative shrink-0">
+        <VideoPreview youtubeId={videoId}>
+          <img
+            src={`https://img.youtube.com/vi/${videoId}/default.jpg`}
+            alt=""
+            className="w-[80px] h-[45px] object-cover rounded bg-bg mt-0.5"
+          />
+        </VideoPreview>
+        {inHistory && (
+          <div className="absolute -top-1 -left-1 bg-orange text-bg font-mono text-[7px] font-semibold px-1 py-0.5 rounded uppercase tracking-wider leading-none">
+            History
+          </div>
+        )}
+      </div>
       <div className="min-w-0">
         <div className="font-mono text-[11px] text-text break-words leading-snug">
           {name || videoId}
@@ -128,12 +129,13 @@ export default function UploadVideosTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [videoAssets, setVideoAssets]         = useState([]);
   const [activeCampaigns, setActiveCampaigns] = useState([]);
+  const [historyIds, setHistoryIds]           = useState(new Set());
 
   // Form
   const [mode, setMode]             = useState('new');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [selectedAssetRN, setSelectedAssetRN] = useState('');
-  const [campaignId, setCampaignId]           = useState(IN_CAMPAIGNS[0].id);
+  const [campaignId, setCampaignId]           = useState(null);
   const [fieldType, setFieldType]             = useState('YOUTUBE_VIDEO');
   const [assetName, setAssetName]             = useState('');
 
@@ -144,7 +146,6 @@ export default function UploadVideosTab() {
 
   const selectedCamp = activeCampaigns.find(c => c.campaignId === campaignId);
 
-  // Split videoAssets into in-campaign and available for the selected campaign
   const liveAssetRNs = useMemo(
     () => new Set((selectedCamp?.assets || []).map(a => a.assetRN)),
     [selectedCamp]
@@ -152,7 +153,6 @@ export default function UploadVideosTab() {
   const liveVideos      = useMemo(() => videoAssets.filter(a =>  liveAssetRNs.has(a.resourceName)), [videoAssets, liveAssetRNs]);
   const availableVideos = useMemo(() => videoAssets.filter(a => !liveAssetRNs.has(a.resourceName)), [videoAssets, liveAssetRNs]);
 
-  // When campaign changes, if selected asset is now live → reset to first available
   useEffect(() => {
     if (selectedAssetRN && liveAssetRNs.has(selectedAssetRN)) {
       const first = availableVideos[0];
@@ -168,7 +168,8 @@ export default function UploadVideosTab() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setLoadError(null);
-    fetch('/api/upload-video')
+    const url = isRefresh ? '/api/upload-video?refresh=1' : '/api/upload-video';
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         if (d.error) { setLoadError(d.error); return; }
@@ -176,9 +177,15 @@ export default function UploadVideosTab() {
         const campaigns = d.activeCampaigns || [];
         setVideoAssets(assets);
         setActiveCampaigns(campaigns);
-        // Default selection: first available (not live in current campaign)
+        setHistoryIds(new Set(d.historyYoutubeIds || []));
+        // Keep existing campaign selection if still valid, else default to first
+        setCampaignId(prev => {
+          if (prev && campaigns.some(c => c.campaignId === prev)) return prev;
+          return campaigns[0]?.campaignId || null;
+        });
+        // Default asset selection against first campaign
         const campLiveRNs = new Set(
-          (campaigns.find(c => c.campaignId === campaignId)?.assets || []).map(a => a.assetRN)
+          (campaigns[0]?.assets || []).map(a => a.assetRN)
         );
         const firstAvail = assets.find(a => !campLiveRNs.has(a.resourceName));
         if (firstAvail) {
@@ -283,7 +290,6 @@ export default function UploadVideosTab() {
         </div>
         <div className="flex-1 overflow-y-auto p-2">
 
-          {/* In Campaign — view only */}
           {liveVideos.length > 0 && (
             <div className="mb-2">
               <div className="font-mono text-[8px] text-accent uppercase tracking-wider px-1 pt-1 pb-1.5">
@@ -291,17 +297,19 @@ export default function UploadVideosTab() {
               </div>
               <div className="space-y-1.5 opacity-50">
                 {liveVideos.map(a => (
-                  <VideoThumb key={a.resourceName} videoId={a.videoId} name={a.name} />
+                  <VideoThumb key={a.resourceName} videoId={a.videoId} name={a.name} inHistory={historyIds.has(a.videoId)} />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Available — selectable for upload */}
           {availableVideos.length > 0 && (
             <div>
-              <div className="font-mono text-[8px] text-muted uppercase tracking-wider px-1 pt-1 pb-1.5">
+              <div className="font-mono text-[8px] text-muted uppercase tracking-wider px-1 pt-1 pb-1.5 flex items-center gap-2">
                 Available ({availableVideos.length})
+                {availableVideos.filter(a => historyIds.has(a.videoId)).length > 0 && (
+                  <span className="text-orange">· {availableVideos.filter(a => historyIds.has(a.videoId)).length} prev used</span>
+                )}
               </div>
               <div className="space-y-1.5">
                 {availableVideos.map(a => (
@@ -312,7 +320,7 @@ export default function UploadVideosTab() {
                         ? 'border-accent2/60' : 'border-transparent hover:border-border'
                     }`}
                   >
-                    <VideoThumb videoId={a.videoId} name={a.name} />
+                    <VideoThumb videoId={a.videoId} name={a.name} inHistory={historyIds.has(a.videoId)} />
                   </div>
                 ))}
               </div>
@@ -332,24 +340,31 @@ export default function UploadVideosTab() {
           {/* Campaign capacity + active videos */}
           <div className="border-b border-border p-5">
             <div className="font-mono text-[10px] text-text2 uppercase tracking-wider mb-3">
-              Active Videos — IN Campaigns
+              Active Videos — All UH Campaigns
             </div>
 
             {/* Campaign selector tabs */}
-            <div className="flex gap-2 mb-4">
-              {IN_CAMPAIGNS.map(c => {
-                const camp = activeCampaigns.find(ac => ac.campaignId === c.id);
-                return (
-                  <button key={c.id} onClick={() => setCampaignId(c.id)}
-                    className={`flex-1 px-3 py-2 rounded border cursor-pointer transition-colors text-left ${
-                      campaignId === c.id ? 'border-accent bg-surface2' : 'border-border hover:border-muted bg-surface2'
-                    }`}
-                  >
-                    <div className="font-mono text-[10px] font-semibold text-text mb-1.5">{c.label}</div>
-                    <CapacityBar count={camp?.count ?? 0} limit={camp?.limit ?? 20} />
-                  </button>
-                );
-              })}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {activeCampaigns.map(camp => (
+                <button key={camp.campaignId} onClick={() => setCampaignId(camp.campaignId)}
+                  className={`flex-1 min-w-[140px] px-3 py-2 rounded border cursor-pointer transition-colors text-left ${
+                    campaignId === camp.campaignId ? 'border-accent bg-surface2' : 'border-border hover:border-muted bg-surface2'
+                  }`}
+                >
+                  <div className="font-mono text-[10px] font-semibold text-text mb-1.5">{camp.campaignLabel}</div>
+                  <CapacityBar count={camp.count} limit={camp.limit} />
+                  {(camp.tcpa !== null || camp.dailyBudget !== null) && (
+                    <div className="flex gap-3 mt-1.5 font-mono text-[9px] text-muted">
+                      {camp.tcpa !== null && (
+                        <span>tCPA: <strong className="text-text2">${camp.tcpa}</strong></span>
+                      )}
+                      {camp.dailyBudget !== null && (
+                        <span>Budget: <strong className="text-text2">${camp.dailyBudget}/d</strong></span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
 
             {/* Active video list for selected campaign */}
@@ -464,22 +479,19 @@ export default function UploadVideosTab() {
               {/* Campaign selector */}
               <div>
                 <label className="block font-mono text-[10px] text-text2 uppercase tracking-wider mb-1">
-                  Campaign <span className="text-muted normal-case">(IN only)</span>
+                  Campaign
                 </label>
-                <div className="flex gap-2">
-                  {IN_CAMPAIGNS.map(c => {
-                    const camp = activeCampaigns.find(ac => ac.campaignId === c.id);
-                    return (
-                      <button key={c.id} type="button" onClick={() => setCampaignId(c.id)}
-                        className={`flex-1 py-2 font-mono text-[10px] rounded border cursor-pointer transition-colors ${
-                          campaignId === c.id ? 'border-accent text-accent bg-surface2' : 'border-border text-text2 bg-surface2 hover:border-muted'
-                        } ${camp?.atLimit ? 'border-red/40 text-red' : ''}`}
-                      >
-                        {c.label}
-                        {camp && <span className="ml-1 text-muted">({camp.count}/{camp.limit})</span>}
-                      </button>
-                    );
-                  })}
+                <div className="flex gap-2 flex-wrap">
+                  {activeCampaigns.map(camp => (
+                    <button key={camp.campaignId} type="button" onClick={() => setCampaignId(camp.campaignId)}
+                      className={`flex-1 min-w-[120px] py-2 font-mono text-[10px] rounded border cursor-pointer transition-colors ${
+                        campaignId === camp.campaignId ? 'border-accent text-accent bg-surface2' : 'border-border text-text2 bg-surface2 hover:border-muted'
+                      } ${camp.atLimit ? 'border-red/40 text-red' : ''}`}
+                    >
+                      {camp.campaignLabel}
+                      <span className="ml-1 text-muted">({camp.count}/{camp.limit})</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -518,7 +530,7 @@ export default function UploadVideosTab() {
                 disabled={submitting || selectedCamp?.atLimit || (mode === 'new' && !videoId) || (mode === 'existing' && availableVideos.length === 0)}
                 className="w-full py-2.5 font-mono text-[11px] font-semibold bg-accent text-bg rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent/90 transition-colors"
               >
-                {submitting ? 'Uploading…' : selectedCamp?.atLimit ? 'Campaign at limit — remove a video first' : 'Upload to Google Ads — IN Only'}
+                {submitting ? 'Uploading…' : selectedCamp?.atLimit ? 'Campaign at limit — remove a video first' : 'Upload to Google Ads'}
               </button>
 
             </form>

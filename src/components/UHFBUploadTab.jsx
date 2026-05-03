@@ -65,7 +65,7 @@ export default function UHFBUploadTab() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     Promise.all([
-      fetch('/api/fb-control?action=library&game=uh').then(r => r.json()),
+      fetch(`/api/fb-control?action=library&game=uh${isRefresh ? '&refresh=1' : ''}`).then(r => r.json()),
       fetch('/api/fb-control?action=live-ads&game=uh').then(r => r.json()),
       fetch('/api/fb-control?action=adsets&game=uh').then(r => r.json()),
     ]).then(([lib, liveAds, ads]) => {

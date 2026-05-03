@@ -70,8 +70,9 @@ export async function kvGet(blobKey) {
  * @param {string} blobKey  e.g. 'creatives/dashboard.json'
  * @param {*}      data     JSON-serialisable value
  */
-export async function kvSet(blobKey, data) {
+export async function kvSet(blobKey, data, ttlSeconds = null) {
   const kvKey = toKvKey(blobKey);
-  await getRedis().set(kvKey, data);
+  const opts = ttlSeconds ? { ex: ttlSeconds } : {};
+  await getRedis().set(kvKey, data, opts);
   writeBlob(blobKey, data).catch(e => console.error('[blob-backup] kvSet failed for', blobKey, ':', e.message));
 }
