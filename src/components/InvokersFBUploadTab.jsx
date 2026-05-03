@@ -52,7 +52,7 @@ export default function InvokersFBUploadTab() {
       setLibrary(lib.videos || []);
       setAds(liveAds.ads || []);
       setAdsets(ads.adsets || []);
-      if (ads.adsets?.length > 0 && !adsetId) setAdsetId(ads.adsets[0].id);
+      if (ads.adsets?.length > 0) setAdsetId(prev => prev || ads.adsets[0].id);
       setOptimisticStatus(new Map());
     }).catch(e => setLoadError(e.message))
       .finally(() => { setLoading(false); setRefreshing(false); });

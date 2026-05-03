@@ -246,6 +246,9 @@ export default async function handler(req, res) {
     try {
       const campaigns = await getInvGoogleCampaigns(token);
       const selectedId = req.query.campaignId;
+      if (selectedId && !/^\d+$/.test(selectedId)) {
+        return res.status(400).json({ error: 'Invalid campaignId' });
+      }
       const activeCampaignId = selectedId || (campaigns[0]?.id ?? null);
 
       if (!activeCampaignId) return res.status(200).json({ videos: [], campaigns, adRN: null });
@@ -333,6 +336,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST' && req.body?.type === 'videos') {
     const { action, assetId, youtubeUrl, assetName, campaignId: postCampaignId } = req.body;
     if (!postCampaignId) return res.status(400).json({ error: 'campaignId required' });
+    if (!/^\d+$/.test(String(postCampaignId))) return res.status(400).json({ error: 'Invalid campaignId' });
 
     if (action === 'upload') {
       const videoId = parseYouTubeId(youtubeUrl);
@@ -365,6 +369,7 @@ export default async function handler(req, res) {
 
     if (!['pause', 'resume'].includes(action)) return res.status(400).json({ error: 'action must be "pause", "resume", or "upload"' });
     if (!assetId) return res.status(400).json({ error: 'assetId required' });
+    if (!/^\d+$/.test(String(assetId))) return res.status(400).json({ error: 'Invalid assetId' });
 
     try {
       const { adRN, youtubeVideos } = await getInvActiveVideos(token, postCampaignId);
