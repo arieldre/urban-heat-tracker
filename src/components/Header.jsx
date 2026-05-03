@@ -56,121 +56,168 @@ export default function Header({
   const isInvGoogle = isInvokers && network === 'google';
 
   return (
-    <header className="bg-surface border-b border-border flex items-center px-5 h-[52px] shrink-0 gap-3">
-      {/* Logo */}
-      <div className={`font-mono text-xs font-semibold tracking-wider uppercase leading-tight whitespace-nowrap mr-1 ${isInvokers ? 'text-purple' : 'text-accent'}`}>
-        {isInvokers ? 'Invokers' : 'Urban Heat'}
-        <br />
-        <span className="text-text2 font-normal text-[9px]">
-          {isInvokers
-            ? network === 'google' ? 'Google' : `FB · ${invSubLabel}`
-            : network === 'facebook' ? `FB · ${fbSubLabel}` : (camp?.shortLabel || '...')}
-        </span>
+    <header className="bg-surface border-b border-border shrink-0">
+      {/* Row 1: logo + toggles + campaign + right controls */}
+      <div className="flex items-center px-5 h-[44px] gap-3">
+        {/* Logo */}
+        <div className={`font-mono text-xs font-semibold tracking-wider uppercase leading-tight whitespace-nowrap mr-1 ${isInvokers ? 'text-purple' : 'text-accent'}`}>
+          {isInvokers ? 'Invokers' : 'Urban Heat'}
+          <br />
+          <span className="text-text2 font-normal text-[9px]">
+            {isInvokers
+              ? network === 'google' ? 'Google' : `FB · ${invSubLabel}`
+              : network === 'facebook' ? `FB · ${fbSubLabel}` : (camp?.shortLabel || '...')}
+          </span>
+        </div>
+
+        {/* Game toggle */}
+        <div className="flex gap-0 border border-border rounded overflow-hidden shrink-0">
+          <button
+            onClick={() => onGameChange('uh')}
+            className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap ${
+              !isInvokers ? 'bg-accent text-[#0a0c0f]' : 'bg-transparent text-text2 hover:text-text'
+            }`}
+          >
+            UH
+          </button>
+          <button
+            onClick={() => onGameChange('inv')}
+            className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap border-l border-border ${
+              isInvokers ? 'bg-purple text-white' : 'bg-transparent text-text2 hover:text-text'
+            }`}
+          >
+            INV
+          </button>
+        </div>
+
+        {/* Network toggle */}
+        <div className="flex gap-0 border border-border rounded overflow-hidden shrink-0">
+          <button
+            onClick={() => onNetworkChange('google')}
+            className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap ${
+              network === 'google'
+                ? isInvokers ? 'bg-purple text-white' : 'bg-accent text-[#0a0c0f]'
+                : 'bg-transparent text-text2 hover:text-text'
+            }`}
+          >
+            Google
+          </button>
+          <button
+            onClick={() => onNetworkChange('facebook')}
+            className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap border-l border-border ${
+              network === 'facebook'
+                ? isInvokers ? 'bg-purple text-white' : 'bg-[#1877f2] text-white'
+                : 'bg-transparent text-text2 hover:text-text'
+            }`}
+          >
+            Facebook
+          </button>
+        </div>
+
+        {/* Campaign toggle — Google */}
+        {!isInvokers && network === 'google' && (
+          <div className="flex gap-1">
+            {CAMPAIGNS.map(c => (
+              <button
+                key={c.id}
+                onClick={() => onCampaignChange(c.id)}
+                className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
+                  selectedCampaign === c.id
+                    ? 'bg-accent text-[#0a0c0f] border-accent'
+                    : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
+                }`}
+              >
+                {c.shortLabel}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Campaign toggle — UH Facebook */}
+        {!isInvokers && network === 'facebook' && fbCampaigns && fbCampaigns.length > 0 && (
+          <div className="flex gap-1">
+            {[{ id: 'all', shortLabel: 'All' }, ...fbCampaigns].map(c => (
+              <button
+                key={c.id}
+                onClick={() => onFBCampaignChange(c.id)}
+                className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
+                  selectedFBCampaign === c.id
+                    ? 'bg-[#1877f2] text-white border-[#1877f2]'
+                    : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
+                }`}
+              >
+                {c.shortLabel}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Campaign toggle — Invokers FB */}
+        {isInvokers && !isInvGoogle && invCampaigns && invCampaigns.length > 0 && (
+          <div className="flex gap-1">
+            {[{ id: 'all', shortLabel: 'All' }, ...invCampaigns].map(c => (
+              <button
+                key={c.id}
+                onClick={() => onInvCampaignChange(c.id)}
+                className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
+                  selectedInvCampaign === c.id
+                    ? 'bg-purple text-white border-purple'
+                    : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
+                }`}
+              >
+                {c.shortLabel}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Right side */}
+        <div className="ml-auto flex gap-3 items-center">
+          <div className="font-mono text-[11px] text-text2 whitespace-nowrap">
+            <strong className="text-text">{stats.live}</strong> live
+          </div>
+          <div className="font-mono text-[11px] text-text2 whitespace-nowrap">
+            <strong className="text-text">{stats.history}</strong> hist
+          </div>
+
+          {!isInvokers && network === 'google' && (
+            <button
+              onClick={onH2H}
+              title="Head-to-Head comparison"
+              className="font-mono text-[10px] font-semibold px-2 py-1 rounded cursor-pointer border bg-transparent text-purple border-[rgba(192,132,252,0.25)] hover:border-purple transition-all"
+            >
+              H2H
+            </button>
+          )}
+
+          <button
+            onClick={onSnapshot}
+            title="Copy shareable link"
+            className="font-mono text-[10px] font-semibold px-2 py-1 rounded cursor-pointer border bg-transparent text-orange border-[rgba(255,170,71,0.25)] hover:border-orange transition-all"
+          >
+            {snapshotMsg || 'Share'}
+          </button>
+
+          <button
+            onClick={onThemeToggle}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            className="text-[16px] cursor-pointer px-1 py-0.5 rounded border border-border hover:border-muted transition-all bg-transparent leading-none"
+          >
+            {theme === 'dark' ? '☀' : '☾'}
+          </button>
+
+          <button
+            onClick={onSync}
+            disabled={syncing}
+            className="font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap bg-surface2 text-accent2 border-[rgba(71,200,255,0.25)] hover:border-accent2 disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {syncing ? 'Syncing...' : 'Sync'}
+          </button>
+        </div>
       </div>
 
-      {/* Game toggle */}
-      <div className="flex gap-0 border border-border rounded overflow-hidden shrink-0">
-        <button
-          onClick={() => onGameChange('uh')}
-          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap ${
-            !isInvokers ? 'bg-accent text-[#0a0c0f]' : 'bg-transparent text-text2 hover:text-text'
-          }`}
-        >
-          UH
-        </button>
-        <button
-          onClick={() => onGameChange('inv')}
-          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap border-l border-border ${
-            isInvokers ? 'bg-purple text-white' : 'bg-transparent text-text2 hover:text-text'
-          }`}
-        >
-          INV
-        </button>
-      </div>
-
-      {/* Network toggle */}
-      <div className="flex gap-0 border border-border rounded overflow-hidden shrink-0">
-        <button
-          onClick={() => onNetworkChange('google')}
-          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap ${
-            network === 'google'
-              ? isInvokers ? 'bg-purple text-white' : 'bg-accent text-[#0a0c0f]'
-              : 'bg-transparent text-text2 hover:text-text'
-          }`}
-        >
-          Google
-        </button>
-        <button
-          onClick={() => onNetworkChange('facebook')}
-          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap border-l border-border ${
-            network === 'facebook'
-              ? isInvokers ? 'bg-purple text-white' : 'bg-[#1877f2] text-white'
-              : 'bg-transparent text-text2 hover:text-text'
-          }`}
-        >
-          Facebook
-        </button>
-      </div>
-
-      {/* Campaign toggle — Google */}
-      {!isInvokers && network === 'google' && (
-        <div className="flex gap-1 mr-2">
-          {CAMPAIGNS.map(c => (
-            <button
-              key={c.id}
-              onClick={() => onCampaignChange(c.id)}
-              className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
-                selectedCampaign === c.id
-                  ? 'bg-accent text-[#0a0c0f] border-accent'
-                  : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
-              }`}
-            >
-              {c.shortLabel}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Campaign toggle — UH Facebook */}
-      {!isInvokers && network === 'facebook' && fbCampaigns && fbCampaigns.length > 0 && (
-        <div className="flex gap-1 mr-2">
-          {[{ id: 'all', shortLabel: 'All' }, ...fbCampaigns].map(c => (
-            <button
-              key={c.id}
-              onClick={() => onFBCampaignChange(c.id)}
-              className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
-                selectedFBCampaign === c.id
-                  ? 'bg-[#1877f2] text-white border-[#1877f2]'
-                  : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
-              }`}
-            >
-              {c.shortLabel}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Campaign toggle — Invokers FB */}
-      {isInvokers && !isInvGoogle && invCampaigns && invCampaigns.length > 0 && (
-        <div className="flex gap-1 mr-2">
-          {[{ id: 'all', shortLabel: 'All' }, ...invCampaigns].map(c => (
-            <button
-              key={c.id}
-              onClick={() => onInvCampaignChange(c.id)}
-              className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
-                selectedInvCampaign === c.id
-                  ? 'bg-purple text-white border-purple'
-                  : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
-              }`}
-            >
-              {c.shortLabel}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex h-full items-stretch">
+      {/* Row 2: tabs */}
+      <div className="flex items-stretch h-[34px] px-5 border-t border-border">
         {tabs.map(t => (
           <div
             key={t.id}
@@ -195,50 +242,6 @@ export default function Header({
             {t.label}
           </div>
         ))}
-      </div>
-
-      {/* Right side */}
-      <div className="ml-auto flex gap-3 items-center">
-        <div className="font-mono text-[11px] text-text2 whitespace-nowrap">
-          <strong className="text-text">{stats.live}</strong> live
-        </div>
-        <div className="font-mono text-[11px] text-text2 whitespace-nowrap">
-          <strong className="text-text">{stats.history}</strong> hist
-        </div>
-
-        {!isInvokers && network === 'google' && (
-          <button
-            onClick={onH2H}
-            title="Head-to-Head comparison"
-            className="font-mono text-[10px] font-semibold px-2 py-1 rounded cursor-pointer border bg-transparent text-purple border-[rgba(192,132,252,0.25)] hover:border-purple transition-all"
-          >
-            H2H
-          </button>
-        )}
-
-        <button
-          onClick={onSnapshot}
-          title="Copy shareable link"
-          className="font-mono text-[10px] font-semibold px-2 py-1 rounded cursor-pointer border bg-transparent text-orange border-[rgba(255,170,71,0.25)] hover:border-orange transition-all"
-        >
-          {snapshotMsg || 'Share'}
-        </button>
-
-        <button
-          onClick={onThemeToggle}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          className="text-[16px] cursor-pointer px-1 py-0.5 rounded border border-border hover:border-muted transition-all bg-transparent leading-none"
-        >
-          {theme === 'dark' ? '\u2600' : '\u263E'}
-        </button>
-
-        <button
-          onClick={onSync}
-          disabled={syncing}
-          className="font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap bg-surface2 text-accent2 border-[rgba(71,200,255,0.25)] hover:border-accent2 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {syncing ? 'Syncing...' : 'Sync'}
-        </button>
       </div>
     </header>
   );
