@@ -29,6 +29,7 @@ export default function App() {
   const [campaignId, setCampaignId] = useState(CAMPAIGNS[0].id);
   const [fbCampaignId, setFBCampaignId] = useState('all');
   const [invCampaignId, setInvCampaignId] = useState('all');
+  const [invGoogleCampaignId, setInvGoogleCampaignId] = useState(null);
   const [activeTab, setActiveTab] = useState('live');
   const [syncing, setSyncing] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('uh-theme') || 'dark');
@@ -38,7 +39,7 @@ export default function App() {
   const { data: googleData, loading: googleLoading, error: googleError, refresh: googleRefresh } = useTrackerData(campaignId);
   const { data: fbData, loading: fbLoading, error: fbError, refresh: fbRefresh } = useFBData(fbCampaignId);
   const { data: invData, loading: invLoading, error: invError, refresh: invRefresh } = useInvokersFBData(invCampaignId);
-  const { data: invGoogleData, loading: invGoogleLoading, error: invGoogleError, refresh: invGoogleRefresh } = useInvokersGoogleData();
+  const { data: invGoogleData, loading: invGoogleLoading, error: invGoogleError, refresh: invGoogleRefresh } = useInvokersGoogleData(invGoogleCampaignId);
 
   const isInvokers = game === 'inv';
   const isInvGoogle = isInvokers && network === 'google';
@@ -80,6 +81,14 @@ export default function App() {
 
   const fbCampaigns = fbData?.campaigns || [];
   const invCampaigns = invData?.campaigns || [];
+  const invGoogleCampaigns = invGoogleData?.campaigns || [];
+
+  // Auto-select first Invokers Google campaign when data loads
+  useEffect(() => {
+    if (!invGoogleCampaignId && invGoogleCampaigns.length > 0) {
+      setInvGoogleCampaignId(invGoogleCampaigns[0].id);
+    }
+  }, [invGoogleCampaigns, invGoogleCampaignId]);
 
   const live = data?.live || [];
   const history = data?.history || [];
@@ -107,18 +116,18 @@ export default function App() {
     history: isInvGoogle ? 0 : isInvokers ? invHistory.length : history.length,
   };
 
-  const handleControlInvGoogleVideo = useCallback(async (assetId, action) => {
+  const handleControlInvGoogleVideo = useCallback(async (assetId, action, campaignId) => {
     const r = await fetch('/api/edit-descriptions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'videos', assetId, action }),
+      body: JSON.stringify({ type: 'videos', assetId, action, campaignId: campaignId || invGoogleCampaignId }),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.error || `HTTP ${r.status}`);
     }
     return r.json();
-  }, []);
+  }, [invGoogleCampaignId]);
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
@@ -186,6 +195,9 @@ export default function App() {
         invCampaigns={invCampaigns}
         selectedInvCampaign={invCampaignId}
         onInvCampaignChange={setInvCampaignId}
+        invGoogleCampaigns={invGoogleCampaigns}
+        selectedInvGoogleCampaign={invGoogleCampaignId}
+        onInvGoogleCampaignChange={setInvGoogleCampaignId}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         stats={stats}
@@ -279,7 +291,7 @@ export default function App() {
         {isInvGoogle && invGoogleData && activeTab === 'history' && (
           <InvokersGoogleTable videos={invGoogleVideos} onControlVideo={handleControlInvGoogleVideo} defaultActiveOnly={false} />
         )}
-        {isInvGoogle && activeTab === 'inv-google-upload' && <InvokersGoogleUploadTab />}
+        {isInvGoogle && activeTab === 'inv-google-upload' && <InvokersGoogleUploadTab campaignId={invGoogleCampaignId} />}
         {isInvGoogle && activeTab === 'inv-google-bid' && <InvokersGoogleBidTab />}
         {isInvGoogle && activeTab === 'google-campaign' && <GoogleCampaignTab game="inv" />}
 

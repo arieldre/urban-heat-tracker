@@ -1,4 +1,4 @@
-const BASE = `https://graph.facebook.com/${process.env.FB_API_VERSION || 'v20.0'}`;
+const BASE = `https://graph.facebook.com/${process.env.FB_API_VERSION || 'v21.0'}`;
 
 export async function getAdCampaignId(adId) {
   const qs = new URLSearchParams({

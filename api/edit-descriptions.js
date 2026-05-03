@@ -2,8 +2,8 @@
  * GET  /api/edit-descriptions            → headlines + descriptions for IN UH campaigns
  * POST /api/edit-descriptions            → add/remove text asset (action, campaignId, fieldType, text)
  *
- * GET  /api/edit-descriptions?type=videos → list all video assets for Invokers UAC ad
- * POST /api/edit-descriptions            → pause/remove or resume/add video (type, action, assetId)
+ * GET  /api/edit-descriptions?type=videos[&campaignId=X] → list video assets for Invokers Google
+ * POST /api/edit-descriptions            → pause/remove or resume/add video (type, action, assetId, campaignId)
  *
  * All mutations use the same ads:mutate pattern: read full list → modify → send full list.
  * Videos use login-customer-id = INV_GOOGLE_CUSTOMER_ID (5004458850), texts use UH customer ID.
@@ -25,9 +25,29 @@ const FIELD_MAP = {
   DESCRIPTION: { adField: 'descriptions', updateMask: 'app_ad.descriptions', limit: 5, maxLen: 90 },
 };
 
-// ── Invokers Google video constants ───────────────────────────────────────────
+// ── Invokers Google constants ─────────────────────────────────────────────────
 const INV_CUSTOMER_ID = (process.env.INV_GOOGLE_CUSTOMER_ID || '5004458850').replace(/[\s-]/g, '');
-const INV_ADGROUP_ID  = '191981823769';
+
+function deriveInvGoogleShortLabel(name = '') {
+  const parts = name.replace(/^INV_/i, '').replace(/^GG_/i, '').split('_');
+  const filtered = parts.filter(p => !/^\d{6}$/.test(p) && p !== 'All');
+  return filtered.slice(0, 3).join(' ').slice(0, 16) || name.slice(0, 16);
+}
+
+async function getInvGoogleCampaigns(token) {
+  const result = await gaQuery(token, `
+    SELECT campaign.id, campaign.name
+    FROM campaign
+    WHERE campaign.status = 'ENABLED'
+      AND campaign.advertising_channel_type = 'MULTI_CHANNEL'
+  `, INV_CUSTOMER_ID);
+  if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
+  return (result.results || []).map(r => ({
+    id: String(r.campaign.id),
+    name: r.campaign.name,
+    shortLabel: deriveInvGoogleShortLabel(r.campaign.name),
+  }));
+}
 
 function parseYouTubeId(input) {
   if (!input) return null;
@@ -137,11 +157,11 @@ async function getInvBidInfo(token) {
   };
 }
 
-async function getInvActiveVideos(token) {
+async function getInvActiveVideos(token, campaignId) {
   const result = await gaQuery(token, `
     SELECT ad_group_ad.ad.resource_name, ad_group_ad.ad.app_ad.youtube_videos
     FROM ad_group_ad
-    WHERE ad_group.id = ${INV_ADGROUP_ID}
+    WHERE campaign.id = ${campaignId}
   `, INV_CUSTOMER_ID);
   if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
   const ad = result.results?.[0]?.adGroupAd?.ad;
@@ -224,6 +244,12 @@ export default async function handler(req, res) {
   // ── Invokers video assets ────────────────────────────────────────────────────
   if (req.method === 'GET' && req.query.type === 'videos') {
     try {
+      const campaigns = await getInvGoogleCampaigns(token);
+      const selectedId = req.query.campaignId;
+      const activeCampaignId = selectedId || (campaigns[0]?.id ?? null);
+
+      if (!activeCampaignId) return res.status(200).json({ videos: [], campaigns, adRN: null });
+
       const today = new Date();
       const from  = new Date(today);
       from.setDate(from.getDate() - 30);
@@ -243,7 +269,7 @@ export default async function handler(req, res) {
             asset.youtube_video_asset.youtube_video_id,
             asset.youtube_video_asset.youtube_video_title
           FROM ad_group_ad_asset_view
-          WHERE ad_group.id = ${INV_ADGROUP_ID}
+          WHERE campaign.id = ${activeCampaignId}
             AND ad_group_ad_asset_view.field_type = 'YOUTUBE_VIDEO'
         `, INV_CUSTOMER_ID),
         gaQuery(token, `
@@ -253,11 +279,11 @@ export default async function handler(req, res) {
             metrics.conversions,
             metrics.all_conversions
           FROM ad_group_ad_asset_view
-          WHERE ad_group.id = ${INV_ADGROUP_ID}
+          WHERE campaign.id = ${activeCampaignId}
             AND ad_group_ad_asset_view.field_type = 'YOUTUBE_VIDEO'
             AND segments.date BETWEEN '${fromStr}' AND '${toStr}'
         `, INV_CUSTOMER_ID),
-        getInvActiveVideos(token),
+        getInvActiveVideos(token, activeCampaignId),
       ]);
       if (assetsResult.error) throw new Error(assetsResult.error.message || JSON.stringify(assetsResult.error));
 
@@ -284,6 +310,7 @@ export default async function handler(req, res) {
         return {
           assetId,
           assetRN,
+          campaignId: activeCampaignId,
           name:             asset?.name || '',
           videoId:          asset?.youtubeVideoAsset?.youtubeVideoId   || '',
           title:            asset?.youtubeVideoAsset?.youtubeVideoTitle || '',
@@ -296,7 +323,7 @@ export default async function handler(req, res) {
           cpaIaa:     iaa > 0           ? +(spend / iaa).toFixed(2)            : null,
         };
       });
-      return res.status(200).json({ videos, adRN: activeVideos.adRN });
+      return res.status(200).json({ videos, campaigns, adRN: activeVideos.adRN });
     } catch (e) {
       console.error('[edit-descriptions GET videos]', e.message);
       return res.status(500).json({ error: e.message });
@@ -304,13 +331,14 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST' && req.body?.type === 'videos') {
-    const { action, assetId, youtubeUrl, assetName } = req.body;
+    const { action, assetId, youtubeUrl, assetName, campaignId: postCampaignId } = req.body;
+    if (!postCampaignId) return res.status(400).json({ error: 'campaignId required' });
 
     if (action === 'upload') {
       const videoId = parseYouTubeId(youtubeUrl);
       if (!videoId) return res.status(400).json({ error: 'Could not parse YouTube video ID' });
       try {
-        const { adRN, youtubeVideos } = await getInvActiveVideos(token);
+        const { adRN, youtubeVideos } = await getInvActiveVideos(token, postCampaignId);
         if (youtubeVideos.length >= 20) return res.status(400).json({ error: 'At 20-video limit — remove one first' });
         const name = assetName?.trim() || `INV_${videoId}`;
         const assetRN = await createInvYouTubeAsset(token, videoId, name);
@@ -339,7 +367,7 @@ export default async function handler(req, res) {
     if (!assetId) return res.status(400).json({ error: 'assetId required' });
 
     try {
-      const { adRN, youtubeVideos } = await getInvActiveVideos(token);
+      const { adRN, youtubeVideos } = await getInvActiveVideos(token, postCampaignId);
       const assetRN = `customers/${INV_CUSTOMER_ID}/assets/${assetId}`;
 
       let newList;

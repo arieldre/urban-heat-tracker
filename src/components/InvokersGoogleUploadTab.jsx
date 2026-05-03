@@ -41,7 +41,7 @@ function CapacityBar({ count, limit }) {
   );
 }
 
-export default function InvokersGoogleUploadTab() {
+export default function InvokersGoogleUploadTab({ campaignId }) {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -61,10 +61,11 @@ export default function InvokersGoogleUploadTab() {
   const videoId = parseYouTubeId(youtubeUrl);
 
   const loadData = useCallback((isRefresh = false) => {
+    if (!campaignId) return;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setLoadError(null);
-    fetch('/api/edit-descriptions?type=videos')
+    fetch(`/api/edit-descriptions?type=videos&campaignId=${campaignId}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) { setLoadError(d.error); return; }
@@ -72,7 +73,7 @@ export default function InvokersGoogleUploadTab() {
       })
       .catch(e => setLoadError('Network error: ' + e.message))
       .finally(() => { setLoading(false); setRefreshing(false); });
-  }, []);
+  }, [campaignId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -83,7 +84,7 @@ export default function InvokersGoogleUploadTab() {
       const r = await fetch('/api/edit-descriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'videos', action: 'pause', assetId: video.assetId }),
+        body: JSON.stringify({ type: 'videos', action: 'pause', assetId: video.assetId, campaignId: video.campaignId || campaignId }),
       });
       const data = await r.json();
       if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);
@@ -103,7 +104,7 @@ export default function InvokersGoogleUploadTab() {
       const r = await fetch('/api/edit-descriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'videos', action: 'resume', assetId: video.assetId }),
+        body: JSON.stringify({ type: 'videos', action: 'resume', assetId: video.assetId, campaignId: video.campaignId || campaignId }),
       });
       const data = await r.json();
       if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);
@@ -117,7 +118,7 @@ export default function InvokersGoogleUploadTab() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!videoId || atLimit) return;
+    if (!videoId || atLimit || !campaignId) return;
     setSubmitting(true);
     setError(null);
     setResult(null);
@@ -125,7 +126,7 @@ export default function InvokersGoogleUploadTab() {
       const r = await fetch('/api/edit-descriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'videos', action: 'upload', youtubeUrl, assetName }),
+        body: JSON.stringify({ type: 'videos', action: 'upload', youtubeUrl, assetName, campaignId }),
       });
       const data = await r.json();
       if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);

@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET?.trim();
-  if (secret && req.headers['authorization'] !== `Bearer ${secret}`) {
+  if (!secret || req.headers['authorization'] !== `Bearer ${secret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

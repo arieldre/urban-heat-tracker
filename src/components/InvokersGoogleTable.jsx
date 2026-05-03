@@ -28,7 +28,7 @@ export default function InvokersGoogleTable({ videos, onControlVideo, defaultAct
     const action   = isActive ? 'pause' : 'resume';
     setPendingIds(s => new Set([...s, video.assetId]));
     try {
-      await onControlVideo(video.assetId, action);
+      await onControlVideo(video.assetId, action, video.campaignId);
       setOptimistic(m => new Map([...m, [video.assetId, !isActive]]));
     } catch (e) {
       console.error('[inv-google-control]', e.message);

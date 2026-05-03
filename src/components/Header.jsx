@@ -6,6 +6,7 @@ export default function Header({
   selectedCampaign, onCampaignChange,
   fbCampaigns, selectedFBCampaign, onFBCampaignChange,
   invCampaigns, selectedInvCampaign, onInvCampaignChange,
+  invGoogleCampaigns, selectedInvGoogleCampaign, onInvGoogleCampaignChange,
   activeTab, onTabChange,
   stats, lastSyncedAt, onSync, syncing,
   theme, onThemeToggle,
@@ -54,6 +55,8 @@ export default function Header({
   const invSubLabel = selectedInvCampaign === 'all' ? 'All' : (invCamp?.shortLabel || '...');
 
   const isInvGoogle = isInvokers && network === 'google';
+  const invGoogleCamp = invGoogleCampaigns?.find(c => c.id === selectedInvGoogleCampaign);
+  const invGoogleSubLabel = invGoogleCamp?.shortLabel || (invGoogleCampaigns?.length > 0 ? '...' : 'Google');
 
   return (
     <header className="bg-surface border-b border-border shrink-0">
@@ -65,7 +68,7 @@ export default function Header({
           <br />
           <span className="text-text2 font-normal text-[9px]">
             {isInvokers
-              ? network === 'google' ? 'Google' : `FB · ${invSubLabel}`
+              ? network === 'google' ? `GG · ${invGoogleSubLabel}` : `FB · ${invSubLabel}`
               : network === 'facebook' ? `FB · ${fbSubLabel}` : (camp?.shortLabel || '...')}
           </span>
         </div>
@@ -161,6 +164,25 @@ export default function Header({
                 onClick={() => onInvCampaignChange(c.id)}
                 className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
                   selectedInvCampaign === c.id
+                    ? 'bg-purple text-white border-purple'
+                    : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
+                }`}
+              >
+                {c.shortLabel}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Campaign toggle — Invokers Google */}
+        {isInvGoogle && invGoogleCampaigns && invGoogleCampaigns.length > 1 && (
+          <div className="flex gap-1">
+            {invGoogleCampaigns.map(c => (
+              <button
+                key={c.id}
+                onClick={() => onInvGoogleCampaignChange(c.id)}
+                className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded cursor-pointer border transition-all whitespace-nowrap ${
+                  selectedInvGoogleCampaign === c.id
                     ? 'bg-purple text-white border-purple'
                     : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
                 }`}
