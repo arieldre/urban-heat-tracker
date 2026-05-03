@@ -17,11 +17,11 @@ const ORIENTATION = {
   SQUARE_YOUTUBE_VIDEO:   '1:1',
 };
 
-export default function InvokersGoogleTable({ videos, onControlVideo }) {
+export default function InvokersGoogleTable({ videos, onControlVideo, defaultActiveOnly = true }) {
   const [pendingIds, setPendingIds]       = useState(new Set());
   const [optimistic, setOptimistic]       = useState(new Map());
   const [search, setSearch]               = useState('');
-  const [activeOnly, setActiveOnly]       = useState(true);
+  const [activeOnly, setActiveOnly]       = useState(defaultActiveOnly);
 
   const handleControl = useCallback(async (video) => {
     const isActive = optimistic.has(video.assetId) ? optimistic.get(video.assetId) : video.active;

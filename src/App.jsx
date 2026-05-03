@@ -11,6 +11,12 @@ import FBLiveTable from './components/FBLiveTable.jsx';
 import FBHistoryTable from './components/FBHistoryTable.jsx';
 import InvokersFBLiveTable from './components/InvokersFBLiveTable.jsx';
 import InvokersGoogleTable from './components/InvokersGoogleTable.jsx';
+import InvokersFBUploadTab from './components/InvokersFBUploadTab.jsx';
+import InvokersGoogleUploadTab from './components/InvokersGoogleUploadTab.jsx';
+import UHFBUploadTab from './components/UHFBUploadTab.jsx';
+import InvokersGoogleBidTab from './components/InvokersGoogleBidTab.jsx';
+import FBCampaignTab from './components/FBCampaignTab.jsx';
+import GoogleCampaignTab from './components/GoogleCampaignTab.jsx';
 import { useTrackerData } from './hooks/useTrackerData.js';
 import { useFBData } from './hooks/useFBData.js';
 import { useInvokersFBData } from './hooks/useInvokersFBData.js';
@@ -47,12 +53,14 @@ export default function App() {
 
   // Reset to live tab when switching networks/games if on incompatible tab
   useEffect(() => {
-    if (network === 'facebook' && (activeTab === 'descriptions' || activeTab === 'compare')) {
-      setActiveTab('live');
-    }
-    if (isInvokers && activeTab !== 'live' && activeTab !== 'history') {
-      setActiveTab('live');
-    }
+    const validTabs = {
+      uhGoogle:  ['live', 'history', 'descriptions', 'compare', 'upload', 'google-campaign'],
+      uhFB:      ['live', 'history', 'uh-fb-upload', 'fb-campaign'],
+      invGoogle: ['live', 'history', 'inv-google-upload', 'inv-google-bid', 'google-campaign'],
+      invFB:     ['live', 'history', 'fb-upload', 'fb-campaign'],
+    };
+    const combo = isInvGoogle ? 'invGoogle' : isInvokers ? 'invFB' : network === 'facebook' ? 'uhFB' : 'uhGoogle';
+    if (!validTabs[combo].includes(activeTab)) setActiveTab('live');
   }, [network, activeTab, isInvokers]);
 
   // Silent auto-sync every 30 min so spend stays current throughout the day
@@ -252,11 +260,30 @@ export default function App() {
         {isInvokers && !isInvGoogle && invData && activeTab === 'history' && (
           <FBHistoryTable entries={invHistory} />
         )}
+        {isInvokers && !isInvGoogle && activeTab === 'fb-upload' && (
+          <InvokersFBUploadTab />
+        )}
+
+        {/* UH Facebook */}
+        {!isInvokers && network === 'facebook' && activeTab === 'uh-fb-upload' && <UHFBUploadTab />}
+        {!isInvokers && network === 'facebook' && activeTab === 'fb-campaign' && <FBCampaignTab game="uh" />}
+
+        {/* UH Google */}
+        {!isInvokers && network === 'google' && activeTab === 'google-campaign' && <GoogleCampaignTab game="uh" />}
 
         {/* Invokers — Google views */}
         {isInvGoogle && invGoogleData && activeTab === 'live' && (
           <InvokersGoogleTable videos={invGoogleVideos} onControlVideo={handleControlInvGoogleVideo} />
         )}
+        {isInvGoogle && invGoogleData && activeTab === 'history' && (
+          <InvokersGoogleTable videos={invGoogleVideos} onControlVideo={handleControlInvGoogleVideo} defaultActiveOnly={false} />
+        )}
+        {isInvGoogle && activeTab === 'inv-google-upload' && <InvokersGoogleUploadTab />}
+        {isInvGoogle && activeTab === 'inv-google-bid' && <InvokersGoogleBidTab />}
+        {isInvGoogle && activeTab === 'google-campaign' && <GoogleCampaignTab game="inv" />}
+
+        {/* Invokers Facebook */}
+        {isInvokers && !isInvGoogle && activeTab === 'fb-campaign' && <FBCampaignTab game="inv" />}
 
         {!isInvGoogle && data && !loading && live.length === 0 && history.length === 0 && activeTab !== 'compare' && (
           <div className="flex items-center justify-center h-64">
