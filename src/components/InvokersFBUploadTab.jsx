@@ -113,7 +113,7 @@ export default function InvokersFBUploadTab() {
         const r = await fetch('/api/fb-control', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'create-ad', game: 'inv', videoId: video.id, adsetId, message }),
+          body: JSON.stringify({ action: 'create-ad', game: 'inv', videoId: video.id, videoTitle: video.title, adsetId, message }),
         });
         const data = await r.json();
         if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);

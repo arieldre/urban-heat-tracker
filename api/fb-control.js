@@ -138,7 +138,8 @@ export default async function handler(req, res) {
 
   // --- POST: create creative + ad ---
   if (body.action === 'create-ad') {
-    const { videoId, adsetId, message = '', game: adGame = 'inv' } = body;
+    const { videoId, adsetId, message = '', game: adGame = 'inv', videoTitle = '' } = body;
+    const adBaseName = videoTitle ? videoTitle.replace(/\.[^/.]+$/, '') : null;
     if (!videoId || !adsetId) return res.status(400).json({ error: 'videoId and adsetId required' });
     const { token: adToken, account: adAccount, pageId } = gameCredentials(adGame);
     if (!adToken) return res.status(500).json({ error: `Missing FB credentials for game=${adGame}` });
@@ -175,7 +176,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `${prefix}_creative_${videoId}_${Date.now()}`,
+          name: adBaseName || `${prefix}_creative_${videoId}_${Date.now()}`,
           object_story_spec: {
             page_id: pageId,
             video_data: {
@@ -196,7 +197,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `${prefix}_ad_${videoId}_${Date.now()}`,
+          name: adBaseName || `${prefix}_ad_${videoId}_${Date.now()}`,
           adset_id: adsetId,
           creative: { creative_id: creativeData.id },
           status: 'PAUSED',
