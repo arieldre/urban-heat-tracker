@@ -283,7 +283,16 @@ export default function InvokersGoogleUploadTab() {
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-mono text-[10px] text-text break-words leading-snug">{v.title || v.name || v.videoId}</div>
-                      <div className="flex gap-3 mt-1 flex-wrap">
+                      <div className="flex gap-3 mt-1 flex-wrap items-center">
+                        {v.spend > 0 && (
+                          <span className="font-mono text-[9px] text-text2">Cost: ${v.spend.toFixed(0)}</span>
+                        )}
+                        {v.cpi !== null && (
+                          <span className="font-mono text-[9px] text-text2">CPI: ${v.cpi.toFixed(2)}</span>
+                        )}
+                        {v.cpaIaa !== null && (
+                          <span className="font-mono text-[9px] text-text2">CPA IAA: ${v.cpaIaa.toFixed(2)}</span>
+                        )}
                         <span className={`font-mono text-[9px] font-semibold ${PERF_COLORS[v.performanceLabel] || 'text-muted'}`}>
                           {v.performanceLabel || 'UNSPECIFIED'}
                         </span>
