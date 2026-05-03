@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import Badge from './Badge.jsx';
 
-const IN_CAMPAIGN_IDS = ['22784768376', '22879160345'];
-
 const FIELD_LIMITS = {
   HEADLINE:    { maxLen: 30, label: 'Headline' },
   DESCRIPTION: { maxLen: 90, label: 'Description' },
@@ -71,8 +69,6 @@ function AddTextForm({ campaignId, onMutated }) {
 }
 
 export default function DescriptionsTable({ assets, historyAssets, campaignId, onMutated }) {
-  const isInCampaign = IN_CAMPAIGN_IDS.includes(campaignId);
-
   const liveHeadlines    = (assets || []).filter(a => a.fieldType === 'HEADLINE' || a.fieldType === 'LONG_HEADLINE');
   const liveDescriptions = (assets || []).filter(a => a.fieldType === 'DESCRIPTION');
   const histHeadlines    = (historyAssets || []).filter(a => a.fieldType === 'HEADLINE' || a.fieldType === 'LONG_HEADLINE');
@@ -82,7 +78,7 @@ export default function DescriptionsTable({ assets, historyAssets, campaignId, o
 
   return (
     <div className="overflow-auto h-full flex flex-col">
-      {isInCampaign && <AddTextForm campaignId={campaignId} onMutated={onMutated} />}
+      <AddTextForm campaignId={campaignId} onMutated={onMutated} />
       <div className="flex-1 overflow-auto">
         <table>
           <thead>
@@ -93,13 +89,13 @@ export default function DescriptionsTable({ assets, historyAssets, campaignId, o
               <th>Spend</th>
               <th>Conv</th>
               <th>Impressions</th>
-              {isInCampaign && <th></th>}
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {liveHeadlines.length > 0 && (
               <>
-                <tr><td colSpan={isInCampaign ? 7 : 6} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent border-b border-border">
+                <tr><td colSpan={7} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent border-b border-border">
                   Headlines — Live <span className="text-muted ml-1">({liveHeadlines.length})</span>
                 </td></tr>
                 {[...liveHeadlines].sort((a, b) => b.spend - a.spend).map((asset, i) => (
@@ -107,7 +103,6 @@ export default function DescriptionsTable({ assets, historyAssets, campaignId, o
                     key={asset.key || `lh-${i}`}
                     asset={asset}
                     status="live"
-                    isInCampaign={isInCampaign}
                     campaignId={campaignId}
                     onMutated={onMutated}
                     mutateFieldType={asset.fieldType === 'LONG_HEADLINE' ? null : 'HEADLINE'}
@@ -118,7 +113,7 @@ export default function DescriptionsTable({ assets, historyAssets, campaignId, o
 
             {liveDescriptions.length > 0 && (
               <>
-                <tr><td colSpan={isInCampaign ? 7 : 6} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent border-b border-border">
+                <tr><td colSpan={7} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent border-b border-border">
                   Descriptions — Live <span className="text-muted ml-1">({liveDescriptions.length})</span>
                 </td></tr>
                 {[...liveDescriptions].sort((a, b) => b.spend - a.spend).map((asset, i) => (
@@ -126,7 +121,6 @@ export default function DescriptionsTable({ assets, historyAssets, campaignId, o
                     key={asset.key || `ld-${i}`}
                     asset={asset}
                     status="live"
-                    isInCampaign={isInCampaign}
                     campaignId={campaignId}
                     onMutated={onMutated}
                     mutateFieldType="DESCRIPTION"
@@ -137,29 +131,29 @@ export default function DescriptionsTable({ assets, historyAssets, campaignId, o
 
             {histHeadlines.length > 0 && (
               <>
-                <tr><td colSpan={isInCampaign ? 7 : 6} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-orange border-b border-border">
+                <tr><td colSpan={7} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-orange border-b border-border">
                   Headlines — History <span className="text-muted ml-1">({histHeadlines.length})</span>
                 </td></tr>
                 {[...histHeadlines].sort((a, b) => b.spend - a.spend).map((asset, i) => (
-                  <TextRow key={asset.key || `hh-${i}`} asset={asset} status="history" isInCampaign={false} />
+                  <TextRow key={asset.key || `hh-${i}`} asset={asset} status="history" />
                 ))}
               </>
             )}
 
             {histDescriptions.length > 0 && (
               <>
-                <tr><td colSpan={isInCampaign ? 7 : 6} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-orange border-b border-border">
+                <tr><td colSpan={7} className="bg-surface2 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-orange border-b border-border">
                   Descriptions — History <span className="text-muted ml-1">({histDescriptions.length})</span>
                 </td></tr>
                 {[...histDescriptions].sort((a, b) => b.spend - a.spend).map((asset, i) => (
-                  <TextRow key={asset.key || `hd-${i}`} asset={asset} status="history" isInCampaign={false} />
+                  <TextRow key={asset.key || `hd-${i}`} asset={asset} status="history" />
                 ))}
               </>
             )}
 
             {!hasAnything && (
               <tr>
-                <td colSpan={isInCampaign ? 7 : 6} className="text-center text-muted font-mono text-[11px] py-8">
+                <td colSpan={7} className="text-center text-muted font-mono text-[11px] py-8">
                   No text assets found
                 </td>
               </tr>
@@ -171,7 +165,7 @@ export default function DescriptionsTable({ assets, historyAssets, campaignId, o
   );
 }
 
-function TextRow({ asset, status, isInCampaign, campaignId, onMutated, mutateFieldType }) {
+function TextRow({ asset, status, campaignId, onMutated, mutateFieldType }) {
   const [removing, setRemoving] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -219,22 +213,20 @@ function TextRow({ asset, status, isInCampaign, campaignId, onMutated, mutateFie
       <td className="font-mono text-[11px] text-text2">
         {asset.impressions > 0 ? asset.impressions.toLocaleString() : '–'}
       </td>
-      {isInCampaign && (
-        <td style={{ padding: '4px 8px' }}>
-          {mutateFieldType ? (
-            <button
-              onClick={handleRemove}
-              disabled={removing}
-              title="Remove from campaign"
-              className="font-mono text-[10px] text-red opacity-60 hover:opacity-100 cursor-pointer disabled:opacity-30"
-            >
-              {removing ? '…' : '✕'}
-            </button>
-          ) : (
-            <span className="font-mono text-[10px] text-muted" title="LONG_HEADLINE not directly mutable on APP_AD">—</span>
-          )}
-        </td>
-      )}
+      <td style={{ padding: '4px 8px' }}>
+        {status !== 'history' && (mutateFieldType ? (
+          <button
+            onClick={handleRemove}
+            disabled={removing}
+            title="Remove from campaign"
+            className="font-mono text-[10px] text-red opacity-60 hover:opacity-100 cursor-pointer disabled:opacity-30"
+          >
+            {removing ? '…' : '✕'}
+          </button>
+        ) : (
+          <span className="font-mono text-[10px] text-muted" title="LONG_HEADLINE not directly mutable on APP_AD">—</span>
+        ))}
+      </td>
     </tr>
   );
 }

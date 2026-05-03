@@ -13,14 +13,12 @@ import { getAccessToken, gaQuery } from './_utils/google.js';
 export const maxDuration = 60;
 
 // ── UH text asset constants ────────────────────────────────────────────────────
-const IN_CAMPAIGN_IDS = ['22784768376', '22879160345'];
-const CAMPAIGN_AD_GROUPS = {
-  '22784768376': '182709178495',
-  '22879160345': '183171683706',
-};
+const UH_CAMPAIGN_IDS = ['22784768376', '22879160345', '23583585016', '23583625147'];
 const CAMPAIGN_LABELS = {
   '22784768376': 'Fast Prog (IN GP)',
   '22879160345': 'Battle Act (IN GP)',
+  '23583585016': 'US GP',
+  '23583625147': 'US iOS',
 };
 const FIELD_MAP = {
   HEADLINE:    { adField: 'headlines',    updateMask: 'app_ad.headlines',    limit: 5, maxLen: 30 },
@@ -72,13 +70,13 @@ function makeHeaders(token, customerId) {
   };
 }
 
-async function getAdTexts(token, adGroupId) {
+async function getAdTexts(token, campaignId) {
   const result = await gaQuery(token, `
     SELECT ad_group_ad.ad.resource_name,
            ad_group_ad.ad.app_ad.headlines,
            ad_group_ad.ad.app_ad.descriptions
     FROM ad_group_ad
-    WHERE ad_group.id = ${adGroupId}
+    WHERE campaign.id = ${campaignId}
   `);
   if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
   const ad = result.results?.[0]?.adGroupAd?.ad;
@@ -381,8 +379,8 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const campaigns = await Promise.all(
-        IN_CAMPAIGN_IDS.map(async (campId) => {
-          const { headlines, descriptions } = await getAdTexts(token, CAMPAIGN_AD_GROUPS[campId]);
+        UH_CAMPAIGN_IDS.map(async (campId) => {
+          const { headlines, descriptions } = await getAdTexts(token, campId);
           return {
             campaignId:    campId,
             campaignLabel: CAMPAIGN_LABELS[campId],
@@ -400,8 +398,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const { action, campaignId, fieldType, text } = req.body || {};
-    if (!IN_CAMPAIGN_IDS.includes(campaignId)) {
-      return res.status(403).json({ error: `Write blocked: campaign ${campaignId} is not an IN campaign.` });
+    if (!UH_CAMPAIGN_IDS.includes(campaignId)) {
+      return res.status(403).json({ error: `Write blocked: campaign ${campaignId} is not a UH campaign.` });
     }
     const mapping = FIELD_MAP[fieldType];
     if (!mapping) return res.status(400).json({ error: `Unsupported fieldType: ${fieldType}. Use HEADLINE or DESCRIPTION.` });
