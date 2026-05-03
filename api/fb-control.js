@@ -102,6 +102,21 @@ export default async function handler(req, res) {
         return res.json({ adset });
       }
 
+      if (action === 'live-ads') {
+        const ads = await fbGetAll(token, `${account}/ads`, {
+          fields: 'id,name,status,creative{video_id,image_url}',
+          filtering: JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }]),
+          limit: '100',
+        });
+        return res.json({ ads: ads.map(a => ({
+          id: a.id,
+          name: a.name,
+          status: a.status,
+          videoId: a.creative?.video_id || null,
+          thumbnailUrl: a.creative?.image_url || null,
+        })) });
+      }
+
       return res.status(400).json({ error: 'Unknown action' });
     } catch (e) {
       return res.status(500).json({ error: e.message });
@@ -165,7 +180,7 @@ export default async function handler(req, res) {
         }),
       });
       const creativeData = await creativeRes.json();
-      if (creativeData.error) throw new Error(`Creative: ${creativeData.error.message}`);
+      if (creativeData.error) throw new Error(`Creative: ${creativeData.error.message} (code=${creativeData.error.code} sub=${creativeData.error.error_subcode})`);
 
       // Create ad (PAUSED)
       const adRes = await fetch(`${BASE}/${adAccount}/ads`, {
@@ -210,7 +225,7 @@ export default async function handler(req, res) {
         }),
       });
       const fbD = await fbR.json();
-      if (fbD.error) throw new Error(fbD.error.message);
+      if (fbD.error) throw new Error(`${fbD.error.message} (code=${fbD.error.code} sub=${fbD.error.error_subcode})`);
       console.log(`[fb-control/create-campaign/${cg}] ${fbD.id}`);
       return res.json({ campaignId: fbD.id, name });
     } catch (e) {
@@ -228,38 +243,22 @@ export default async function handler(req, res) {
     const { token: at, account: aa } = gameCredentials(ag);
     if (!at) return res.status(500).json({ error: `Missing FB credentials for game=${ag}` });
     try {
-      const src = await fbGet(at, sourceAdsetId, {
-        fields: 'targeting,billing_event,optimization_goal,bid_amount,bid_strategy,promoted_object,destination_type,attribution_spec',
-      });
-      // Strip internal-only fields that FB rejects on create
-      const promotedObj = src.promoted_object
-        ? (({ application_id, object_store_url, custom_event_type, pixel_id, pixel_aggregation_rule }) =>
-            Object.fromEntries(Object.entries({ application_id, object_store_url, custom_event_type, pixel_id, pixel_aggregation_rule }).filter(([, v]) => v != null))
-          )(src.promoted_object)
-        : null;
-      const fbR = await fetch(`${BASE}/${aa}/adsets`, {
+      // Use FB native copy endpoint — avoids field validation issues on manual rebuild
+      const copyRes = await fetch(`${BASE}/${sourceAdsetId}/copies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
           campaign_id: newCampId,
-          billing_event: src.billing_event,
-          optimization_goal: src.optimization_goal,
-          ...(src.bid_amount && { bid_amount: src.bid_amount }),
-          ...(src.bid_strategy && { bid_strategy: src.bid_strategy }),
-          targeting: src.targeting,
-          ...(promotedObj && { promoted_object: promotedObj }),
-          ...(src.destination_type && src.destination_type !== 'UNDEFINED' && { destination_type: src.destination_type }),
-          ...(src.attribution_spec?.length && { attribution_spec: src.attribution_spec }),
+          rename_options: JSON.stringify({ rename_strategy: 'ONLY_TOP_LEVEL_RENAME', renamed_name: name }),
           daily_budget: String(Math.round(parseFloat(dailyBudget) * 100)),
-          status: 'PAUSED',
+          status_option: 'PAUSED',
           access_token: at,
         }),
       });
-      const fbD = await fbR.json();
-      if (fbD.error) throw new Error(fbD.error.message);
-      console.log(`[fb-control/create-adset/${ag}] ${fbD.id} in campaign ${newCampId}`);
-      return res.json({ adsetId: fbD.id, name });
+      const fbD = await copyRes.json();
+      if (fbD.error) throw new Error(`${fbD.error.message} (code=${fbD.error.code} sub=${fbD.error.error_subcode})`);
+      console.log(`[fb-control/create-adset/${ag}] copy ${fbD.copied_adset_id} in campaign ${newCampId}`);
+      return res.json({ adsetId: fbD.copied_adset_id, name });
     } catch (e) {
       console.error('[fb-control/create-adset]', e);
       return res.status(500).json({ error: e.message });
