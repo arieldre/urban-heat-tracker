@@ -55,13 +55,13 @@ export default function InvokersGoogleTable({ videos, onControlVideo }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search videos..."
-          className="bg-surface2 border border-border rounded px-3 py-1 text-[11px] font-mono text-text outline-none focus:border-[rgba(90,101,234,0.4)] placeholder:text-muted w-[240px]"
+          className="bg-surface2 border border-border rounded px-3 py-1 text-[11px] font-mono text-text outline-none focus:border-[rgba(168,85,247,0.4)] placeholder:text-muted w-[240px]"
         />
         <button
           onClick={() => setActiveOnly(v => !v)}
           className={`font-mono text-[10px] font-semibold px-2.5 py-1 rounded border cursor-pointer transition-all whitespace-nowrap ${
             activeOnly
-              ? 'bg-[#5a65ea] text-white border-[#5a65ea]'
+              ? 'bg-purple text-white border-purple'
               : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
           }`}
         >
@@ -107,7 +107,7 @@ export default function InvokersGoogleTable({ videos, onControlVideo }) {
                         href={`https://www.youtube.com/watch?v=${video.videoId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-[10px] text-[#5a65ea] hover:underline"
+                        className="font-mono text-[10px] text-purple hover:underline"
                       >
                         yt/{video.videoId}
                       </a>

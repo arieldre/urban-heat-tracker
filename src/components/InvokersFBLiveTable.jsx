@@ -120,13 +120,13 @@ export default function InvokersFBLiveTable({ assets, onControlAd }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search creatives or campaigns..."
-          className="bg-surface2 border border-border rounded px-3 py-1 text-[11px] font-mono text-text outline-none focus:border-[rgba(24,119,242,0.4)] placeholder:text-muted w-[240px]"
+          className="bg-surface2 border border-border rounded px-3 py-1 text-[11px] font-mono text-text outline-none focus:border-[rgba(168,85,247,0.4)] placeholder:text-muted w-[240px]"
         />
         <button
           onClick={() => setActiveOnly(v => !v)}
           className={`font-mono text-[10px] font-semibold px-2.5 py-1 rounded border cursor-pointer transition-all whitespace-nowrap ${
             activeOnly
-              ? 'bg-[#1877f2] text-white border-[#1877f2]'
+              ? 'bg-purple text-white border-purple'
               : 'bg-transparent text-text2 border-border hover:text-text hover:border-muted'
           }`}
         >

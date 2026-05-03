@@ -19,34 +19,51 @@ export default function Header({
     { id: 'descriptions', label: 'Descriptions' },
     { id: 'compare', label: 'Compare' },
     { id: 'upload', label: 'Upload Videos' },
+    { id: 'google-campaign', label: 'New Campaign' },
   ];
 
   const fbTabs = [
     { id: 'live', label: 'Live' },
     { id: 'history', label: 'History' },
+    { id: 'uh-fb-upload', label: 'Upload Creative' },
+    { id: 'fb-campaign', label: 'New Campaign' },
   ];
 
-  const invTabs = [
+  const invFBTabs = [
     { id: 'live', label: 'Live' },
     { id: 'history', label: 'History' },
+    { id: 'fb-upload', label: 'Upload Creative' },
+    { id: 'fb-campaign', label: 'New Campaign' },
   ];
 
-  const tabs = isInvokers ? invTabs : (network === 'facebook' ? fbTabs : googleTabs);
+  const invGoogleTabs = [
+    { id: 'live', label: 'Live' },
+    { id: 'history', label: 'History' },
+    { id: 'inv-google-upload', label: 'Upload Video' },
+    { id: 'inv-google-bid', label: 'Bid & Budget' },
+    { id: 'google-campaign', label: 'New Campaign' },
+  ];
+
+  const tabs = isInvokers
+    ? (network === 'facebook' ? invFBTabs : invGoogleTabs)
+    : (network === 'facebook' ? fbTabs : googleTabs);
   const camp = CAMPAIGNS.find(c => c.id === selectedCampaign);
   const fbCamp = fbCampaigns?.find(c => c.id === selectedFBCampaign);
   const fbSubLabel = selectedFBCampaign === 'all' ? 'All' : (fbCamp?.shortLabel || '...');
   const invCamp = invCampaigns?.find(c => c.id === selectedInvCampaign);
   const invSubLabel = selectedInvCampaign === 'all' ? 'All' : (invCamp?.shortLabel || '...');
 
+  const isInvGoogle = isInvokers && network === 'google';
+
   return (
     <header className="bg-surface border-b border-border flex items-center px-5 h-[52px] shrink-0 gap-3">
       {/* Logo */}
-      <div className="font-mono text-xs font-semibold text-accent tracking-wider uppercase leading-tight whitespace-nowrap mr-1">
+      <div className={`font-mono text-xs font-semibold tracking-wider uppercase leading-tight whitespace-nowrap mr-1 ${isInvokers ? 'text-purple' : 'text-accent'}`}>
         {isInvokers ? 'Invokers' : 'Urban Heat'}
         <br />
         <span className="text-text2 font-normal text-[9px]">
           {isInvokers
-            ? `FB · ${invSubLabel}`
+            ? network === 'google' ? 'Google' : `FB · ${invSubLabel}`
             : network === 'facebook' ? `FB · ${fbSubLabel}` : (camp?.shortLabel || '...')}
         </span>
       </div>
@@ -71,27 +88,29 @@ export default function Header({
         </button>
       </div>
 
-      {/* Network toggle — UH only */}
-      {!isInvokers && (
-        <div className="flex gap-0 border border-border rounded overflow-hidden shrink-0">
-          <button
-            onClick={() => onNetworkChange('google')}
-            className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap ${
-              network === 'google' ? 'bg-accent text-[#0a0c0f]' : 'bg-transparent text-text2 hover:text-text'
-            }`}
-          >
-            Google
-          </button>
-          <button
-            onClick={() => onNetworkChange('facebook')}
-            className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap border-l border-border ${
-              network === 'facebook' ? 'bg-[#1877f2] text-white' : 'bg-transparent text-text2 hover:text-text'
-            }`}
-          >
-            Facebook
-          </button>
-        </div>
-      )}
+      {/* Network toggle */}
+      <div className="flex gap-0 border border-border rounded overflow-hidden shrink-0">
+        <button
+          onClick={() => onNetworkChange('google')}
+          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap ${
+            network === 'google'
+              ? isInvokers ? 'bg-purple text-white' : 'bg-accent text-[#0a0c0f]'
+              : 'bg-transparent text-text2 hover:text-text'
+          }`}
+        >
+          Google
+        </button>
+        <button
+          onClick={() => onNetworkChange('facebook')}
+          className={`font-mono text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 cursor-pointer transition-all whitespace-nowrap border-l border-border ${
+            network === 'facebook'
+              ? isInvokers ? 'bg-purple text-white' : 'bg-[#1877f2] text-white'
+              : 'bg-transparent text-text2 hover:text-text'
+          }`}
+        >
+          Facebook
+        </button>
+      </div>
 
       {/* Campaign toggle — Google */}
       {!isInvokers && network === 'google' && (
@@ -131,8 +150,8 @@ export default function Header({
         </div>
       )}
 
-      {/* Campaign toggle — Invokers */}
-      {isInvokers && invCampaigns && invCampaigns.length > 0 && (
+      {/* Campaign toggle — Invokers FB */}
+      {isInvokers && !isInvGoogle && invCampaigns && invCampaigns.length > 0 && (
         <div className="flex gap-1 mr-2">
           {[{ id: 'all', shortLabel: 'All' }, ...invCampaigns].map(c => (
             <button
