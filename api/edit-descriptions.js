@@ -438,7 +438,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const current = await getAdTexts(token, CAMPAIGN_AD_GROUPS[campaignId]);
+      const current = await getAdTexts(token, campaignId);
       const { adRN, [mapping.adField]: currentList } = current;
 
       if (action === 'add') {
