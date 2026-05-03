@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import FBVideoPreview from './FBVideoPreview.jsx';
 
 const WANTED_DIMS = ['1080x1080', '1920x1080', '1080x1920'];
 const DIM_LABELS = { '1080x1080': '1:1', '1920x1080': '16:9', '1080x1920': '9:16' };
@@ -89,13 +90,14 @@ export default function UHFBUploadTab() {
     const vDim = extractDim(v.title || '');
     const found = WANTED_DIMS.map(dim => ({
       dim,
+      // 1. find sibling with same base name and exact dimension
       video: library.find(lv => lv.id !== v.id && extractDim(lv.title) === dim && baseName(lv.title) === base)
+        // 2. selected video matches this dim
         || (vDim === dim ? v : null)
-        || (!vDim && dim === '1080x1080' ? v : null),
+        // 3. fallback: use selected video for any unmatched slot (ensures 3 ads always created)
+        || v,
     }));
-    const anyFound = found.some(f => f.video);
-    if (!anyFound) setVariants([{ dim: vDim || 'original', video: v }]);
-    else setVariants(found);
+    setVariants(found);
   };
 
   const handleSubmit = async (e) => {
@@ -178,7 +180,9 @@ export default function UHFBUploadTab() {
                   const dim = extractDim(v.title || '');
                   return (
                     <div key={v.id} className="flex items-start gap-2 p-2 rounded border border-border bg-surface2">
-                      <img src={v.picture} alt="" className="w-[56px] h-[32px] object-cover rounded shrink-0 mt-0.5" />
+                      <FBVideoPreview videoId={v.id} picture={v.picture}>
+                        <img src={v.picture} alt="" className="w-[56px] h-[32px] object-cover rounded shrink-0 mt-0.5" />
+                      </FBVideoPreview>
                       <div className="min-w-0">
                         <div className="font-mono text-[10px] text-text truncate">{cleanTitle(v.title)}</div>
                         <div className="font-mono text-[9px] text-muted">{dim ? (DIM_LABELS[dim] || dim) : fmtDuration(v.length)}</div>
@@ -207,7 +211,9 @@ export default function UHFBUploadTab() {
                         isSelected ? 'border-accent ring-1 ring-accent/20' : 'border-border hover:border-muted'
                       }`}
                     >
-                      <img src={v.picture} alt="" className="w-[56px] h-[32px] object-cover rounded shrink-0 mt-0.5" />
+                      <FBVideoPreview videoId={v.id} picture={v.picture}>
+                        <img src={v.picture} alt="" className="w-[56px] h-[32px] object-cover rounded shrink-0 mt-0.5" />
+                      </FBVideoPreview>
                       <div className="min-w-0">
                         <div className="font-mono text-[10px] text-text truncate">{cleanTitle(v.title)}</div>
                         <div className="font-mono text-[9px] text-muted">{dim ? (DIM_LABELS[dim] || dim) : fmtDuration(v.length)}</div>
@@ -245,12 +251,14 @@ export default function UHFBUploadTab() {
                 return (
                   <div key={ad.id} className={`flex items-start gap-2 py-2 border-b border-border/50 last:border-0 ${!isActive ? 'opacity-40' : ''}`}>
                     {ad.thumbnailUrl && (
-                      <img
-                        src={ad.thumbnailUrl}
-                        alt=""
-                        className="w-[56px] h-[32px] object-cover rounded shrink-0 bg-bg mt-0.5"
-                        onError={e => { e.target.style.display = 'none'; }}
-                      />
+                      <FBVideoPreview videoId={ad.videoId} picture={ad.thumbnailUrl}>
+                        <img
+                          src={ad.thumbnailUrl}
+                          alt=""
+                          className="w-[56px] h-[32px] object-cover rounded shrink-0 bg-bg mt-0.5"
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      </FBVideoPreview>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-mono text-[10px] text-text break-words leading-snug">{ad.name}</div>

@@ -1,4 +1,5 @@
 import { useState, useMemo, Fragment, useCallback } from 'react';
+import FBVideoPreview from './FBVideoPreview.jsx';
 import { spendVelocity, daysActive } from '../utils/trends.js';
 
 function sortAssets(assets, sortKey, sortDir) {
@@ -163,12 +164,14 @@ export default function InvokersFBLiveTable({ assets, onControlAd }) {
                   {/* Creative */}
                   <td className="flex items-center gap-3">
                     {asset.thumbnailUrl && (
-                      <img
-                        src={asset.thumbnailUrl}
-                        alt=""
-                        className="w-[48px] h-[36px] rounded object-cover shrink-0"
-                        onError={e => { e.target.style.display = 'none'; }}
-                      />
+                      <FBVideoPreview videoId={asset.videoId} picture={asset.thumbnailUrl}>
+                        <img
+                          src={asset.thumbnailUrl}
+                          alt=""
+                          className="w-[48px] h-[36px] rounded object-cover shrink-0"
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      </FBVideoPreview>
                     )}
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
